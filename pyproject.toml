@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spdee"
+version = "0.1.0"
+description = "Spherical PDE eigensolver: a symbolic IR for linear PDEs on spherical domains with finite-difference (collocated and staggered Arakawa-C) backends."
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+# The minimum tier: the collocated, staggered and sh_fd cores with the
+# ARPACK, SuperLU, dense-LAPACK and pure-Python FPLUS solvers.  The floors are
+# conservative: the code uses no numpy API newer than the Generator random
+# interface (1.17), no scipy API newer than spmatrix, splu/spilu/eigs/svds and
+# spsolve_triangular (<= 1.10), and generic sympy; none of the aliases numpy 2
+# removed appear.  Tested at numpy 2.3, scipy 1.16, sympy 1.14 on Python 3.13.
+# `python -m spdee.check` prints what this installation can run.
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "sympy>=1.12",
+]
+
+[project.optional-dependencies]
+# The spectral core (spdee.backends.dedalus).  Dedalus v3 has no wheels: it
+# is built from source against MPI, FFTW and HDF5 by
+# scripts/install_dedalus_env.sh (conda), which is how the tested 3.0.5
+# install was made; `pip install spdee[dedalus]` needs those libraries
+# present.  Dedalus itself pulls mpi4py and h5py.
+dedalus = ["dedalus>=3.0.5"]
+# NVIDIA GPUs: CuPy for the device LU / census (cupy-cuda13x for a CUDA 13
+# runtime, cupy-cuda12x for CUDA 12; Xgeev needs CUDA >= 12.8) and
+# nvmath-python for the cuDSS sparse direct factorization.
+gpu-cuda = ["cupy-cuda13x>=14.0", "nvmath-python[cu13]>=0.8"]
+gpu-cuda12 = ["cupy-cuda12x>=13.0", "nvmath-python[cu12]>=0.8"]
+# AMD GPUs: CuPy's ROCm build.  The wheel name carries the ROCm major it was
+# built for (cupy-rocm-7-0 is the CuPy 14 wheel) and the wheel ships code for
+# a fixed list of discrete gfx targets: on an integrated RDNA 3.5 part
+# (gfx1150, Radeon 890M) it segfaults on import, and CuPy must be built from
+# source instead (CUPY_INSTALL_USE_HIP=1 ROCM_HOME=/usr
+# HCC_AMDGPU_TARGET=gfx1150 pip install --no-binary cupy cupy).  Gives the
+# device dense LU (taken by 'auto' on a discrete part, MI300-class) and the
+# device sparse matvec; no Xgeev, no cuDSS, geev runs on the host; on an
+# integrated part 'auto' stays on the host.
+gpu-rocm = ["cupy-rocm-7-0>=14.0"]
+# Build requirements of the FPLUS and bbjd C extensions
+# (spdee/solvers/build_ext.sh): a C99 compiler and, for bbjd, BLAS/LAPACK
+# headers (scipy's bundled OpenBLAS is linked when found, else the system
+# libblas/liblapack); OpenMP optional.  Pure Python cannot install a compiler:
+# apt install build-essential libopenblas-dev, or conda install c-compiler
+# openblas.
+ext = ["setuptools>=68", "wheel", "numpy>=1.24"]
+# Plotting / production driver scripts (not needed for the core solver or tests).
+viz = ["matplotlib>=3.7"]
+# Distributed resolution sweeps (tools/, scripts/).
+mpi = ["mpi4py>=3.1"]
+# Everything the tree can use on a machine with an NVIDIA GPU (ROCm excluded: the
+# CUDA and ROCm CuPy wheels conflict).
+all = ["spdee[dedalus,gpu-cuda,ext,viz,mpi]"]
+# The test suite (tests/); the GPU, Dedalus and C-extension tests skip when
+# their tier is absent.
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+# Flat layout: the importable package is the top-level `spdee/` directory.
+# Explicitly include only the package so research/scratch trees (docs/,
+# scripts/, tools/) are never picked up as importable subpackages.
+include = ["spdee*"]
+exclude = ["docs*", "scripts*", "tools*", "tests*"]
+
+[tool.setuptools.package-data]
+# Ship the tabulated solar-interior data used by SolarBackgrounds.
+spdee = ["../data/solar/*.txt", "../data/solar/*.npy"]
+
+[tool.pytest.ini_options]
+# Scope discovery to the curated suite (the C-extension suites under
+# spdee/solvers are run from their own directories).
+testpaths = ["tests"]
+norecursedirs = ["docs", "scripts", "tools", "data", ".pytest_cache", "*.egg-info"]
+markers = [
+    "slow: marks tests that take >1 min (deselect with '-m \"not slow\"')",
+]
