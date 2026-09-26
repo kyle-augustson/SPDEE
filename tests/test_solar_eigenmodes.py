@@ -1,4 +1,4 @@
-"""Acceptance tests for the Bekki + background magnetic field system.
+"""Acceptance tests for the solar eigenproblem + background magnetic field system.
 
 These tests use a small grid (N=24) to keep CI cost down. They check:
 
@@ -6,7 +6,7 @@ These tests use a small grid (N=24) to keep CI cost down. They check:
    amplitude ratio on the equator.
 
 2. **Le=0 reduces to hydro**: the MHD system with Le=0 has a
-   spectrum that contains the pure Bekki Step 4 spectrum as a
+   spectrum that contains the pure solar-eigenproblem Step 4 spectrum as a
    subset (the additional modes are pure-magnetic decay).
 
 3. **Le scaling is quadratic**: doubling Le quadruples the shift
@@ -59,7 +59,7 @@ needs_solar = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def solar():
-    """Solar backgrounds in the Bekki shell domain."""
+    """Solar backgrounds in the shell domain of the solar eigenproblem."""
     return SolarBackgrounds(
         _DATA_DIR, ('shell', 0.71, 0.985),
         nondimensional=True, uniform_core_blend=True,
@@ -167,7 +167,7 @@ class TestCompile:
 
 @needs_solar
 class TestLeZeroMatchesHydro:
-    """At Le=0, all hydro Bekki Step 4 eigenvalues should appear in
+    """At Le=0, all hydro solar-eigenproblem Step 4 eigenvalues should appear in
     the MHD spectrum (plus extra purely-magnetic decay modes)."""
 
     def test_hydro_spectrum_is_subset(self, solar, grid):

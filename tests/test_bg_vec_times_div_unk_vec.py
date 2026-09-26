@@ -1,7 +1,7 @@
 """Test the walker pattern for ``bg_vec * Div(unknown_vector)``.
 
-This is the composed operator needed for the trace piece of Bekki's
-viscous force decomposition (§2.3):
+This is the composed operator needed for the trace piece of the
+viscous force decomposition of Bekki et al. (2022, §2.3):
     ∇ln ρ_0 · [-(2/3)(∇·v) I]  =  -(2/3)(∇·v) · ∇ln ρ_0
 where ∇·v is the unknown scalar produced by ``Div(v)``. By dispatching
 the composition ``bg_vec * Div(v)`` directly, we avoid introducing
@@ -257,7 +257,7 @@ class TestManufacturedSolution:
 
 class TestSolarTraceTerm:
     """Integration test: the trace piece ``-(2/3)(∇·v)∇ln ρ_0`` of
-    Bekki's viscous force compiles on a solar background and produces
+    the solar eigenproblem's viscous force compiles on a solar background and produces
     a numerically distinguishable contribution to a Step-4-like
     spectrum.
     """
@@ -275,7 +275,7 @@ class TestSolarTraceTerm:
         )
 
     def test_solar_full_viscous_compiles(self, solar_bg):
-        """The full Bekki viscous decomposition
+        """The full solar-eigenproblem viscous decomposition
             ν · [Lap(v) + (1/3) Grad(Div(v))
                  + (∇ln ρ_0) · (Grad(v) + (Grad v)^T)
                  - (2/3)(∇·v) ∇ln ρ_0]

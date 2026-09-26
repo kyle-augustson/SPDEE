@@ -1349,11 +1349,11 @@ def compile_problem(
     pole_closure : bool, default False
         Staggered: add the explicit pole share of the strain's theta-phi
         component, which keeps the pole-adjacent azimuthal velocity ring
-        second order at |m| >= 2 but departs from the seed code's pole
+        second order at |m| >= 2 but departs from the reference implementation's pole
         treatment (docs/staggered_general_design.md section 2b).
     coriolis_pairing : str, default "center"
         Staggered theta-phi Coriolis pair: "center" (cos theta on the
-        centers in both blocks, exactly W-skew), "seed" (the Bekki recipe,
+        centers in both blocks, exactly W-skew), "solar_eigenproblem" (the reference implementation's recipe,
         skew to O(dtheta)) or "adjoint" (edge-cos block with its exact
         adjoint).
     discretization : Discretization or str, optional

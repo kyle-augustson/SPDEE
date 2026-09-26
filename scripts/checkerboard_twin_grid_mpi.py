@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Twin-grid convergence test of the Bekki Figure-2 modes on the
+"""Twin-grid convergence test of the solar-eigenproblem Figure-2 modes on the
 collocated core.
 
 `filter_spurious_eigenvalues` solves the EVP on (N_r, N_θ) and

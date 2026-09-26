@@ -4,8 +4,8 @@ spectrum in the complex ω-plane — and dump it for cross-correlation.
 
 Two modes:
 
-  (1) SPECTRUM (default): dense full eigenvalue solve (matches Bekki's LAPACK
-      approach), maps λ→ω, renders on Fig-2b axes, saves eigenvalues to .npz
+  (1) SPECTRUM (default): dense full eigenvalue solve (matches the LAPACK
+      approach of Bekki et al. 2022), maps λ→ω, renders on Fig-2b axes, saves eigenvalues to .npz
       and a scatter .png. Also prints sanity diagnostics (Rossby mode location,
       convective/growing-mode count, high-|Im| artifact fraction).
 
@@ -13,7 +13,7 @@ Two modes:
       pull a single eigenvector, then save the meridional v_r / v_θ fields for
       eigenfunction comparison against the panels under Fig 2.
 
-Parameters default to Bekki Fig 2: m=8, uniform rotation, δ=10⁻⁶ weakly
+Parameters default to Fig. 2 of Bekki et al. (2022): m=8, uniform rotation, δ=10⁻⁶ weakly
 superadiabatic, ν=κ=1×10¹¹ cm²/s ⇒ Ek=ν/(Ω₀R_sun²)=7.12×10⁻⁶, stress-free +
 impenetrable, Neumann entropy, (N_r,N_θ)=(16,72), CZ shell r∈[0.71,0.985].
 
@@ -47,9 +47,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 
-# Bekki Fig-2 nondimensionalization: length R_sun, time 1/Ω₀ (Carrington).
+# Nondimensionalization of Fig. 2 of Bekki et al. (2022): length R_sun, time 1/Ω₀ (Carrington).
 #   Ek = ν / (Ω₀ R_sun²).  Anchor: ν=1e12 cm²/s ⇒ Ek=7.2e-5.
-#   IMPORTANT: Bekki 2022 quotes TWO diffusivities. The Fig-2 CAPTION (the m=8
+#   IMPORTANT: Bekki et al. (2022) quote TWO diffusivities. The Fig-2 CAPTION (the m=8
 #   overview spectrum reproduced here) uses ν=κ=1e11 cm²/s ⇒ Ek=7.12e-6.
 #   The §2.5 / later-figure value is 2e12 ⇒ Ek=1.44e-4 — ~20× larger, which
 #   OVER-DAMPS the entire inertial band (every band mode acquires |Im ω|≫0) and
@@ -58,7 +58,7 @@ EK_FIG2 = 7.123e-6   # ν=κ=1e11 cm²/s, Ω₀=2π·456nHz, R_sun=7e10 cm (Fig-
 
 
 def build(args):
-    """Build + compile the Bekki Fig-2 system on the chosen backend."""
+    """Build + compile the solar-eigenproblem Fig-2 system on the chosen backend."""
     from spdee.backgrounds.polytrope import PolytropeBackground
     from spdee.applications.solar_eigenmodes import make_polytrope_system
     from spdee.backends.fd2.grid import make_shell_grid
@@ -85,7 +85,7 @@ def build(args):
 
 
 def lam_to_omega(lam):
-    """spdee convention λ = +iω ⇒ ω = −iλ. Bekki plots (Re ω, Im ω)/Ω₀.
+    """spdee convention λ = +iω ⇒ ω = −iλ. Bekki et al. (2022) plot (Re ω, Im ω)/Ω₀.
 
     Re(ω) = +Im(λ) (frequency), Im(ω) = −Re(λ) (growth; <0 ⇒ damped).
     Canonical derivation lives in
@@ -105,7 +105,7 @@ def run_spectrum(args):
     print(f"[build+assemble] {time.time()-t0:.1f}s   K {K.shape}  nnz {K.nnz}",
           flush=True)
 
-    # Dense generalized eigensolve (all n eigenvalues), matching Bekki's LAPACK.
+    # Dense generalized eigensolve (all n eigenvalues), matching the LAPACK solve of Bekki et al. (2022).
     # Memory: a single complex128 n×n array is n²·16 B ≈ 0.53 GB at n=5760, but
     # scipy.linalg.eig (LAPACK zggev) densifies BOTH K and M and keeps several
     # n×n scratch/working copies live during the QZ iteration even with
@@ -166,7 +166,7 @@ def _diagnostics(omega, args):
         # Split physical inertial band from spurious high-|Re| (high-k) modes.
         # Coarse-resolution tests showed buoyancy destabilizes spurious modes
         # at |Re ω|~59 that are NOT the physical convective branch; only
-        # |Re ω|<2 growing modes correspond to Bekki Fig-2c convective modes.
+        # |Re ω|<2 growing modes correspond to the Fig. 2c convective modes of Bekki et al. (2022).
         gphys = growing[np.abs(growing.real) < 2.0]
         gspur = growing[np.abs(growing.real) >= 2.0]
         print(f"    -> in inertial range |Re ω|<2 (PHYSICAL): {len(gphys)}")
@@ -176,12 +176,12 @@ def _diagnostics(omega, args):
                  if len(gspur) else ""))
         for w in sorted(gphys, key=lambda z: -z.imag)[:15]:
             print(f"         ω = {w.real:+.4f} {w.imag:+.4f}j")
-    print("  (Bekki Fig-2c convective anchor: Re~+0.27, Im~+0.36)")
-    # Bekki: ~10% of eigenfrequencies have nonzero Im (truncation artifacts at
+    print("  (Fig. 2c convective anchor of Bekki et al. 2022: Re~+0.27, Im~+0.36)")
+    # Bekki et al. (2022): ~10% of eigenfrequencies have nonzero Im (truncation artifacts at
     # high spatial frequency). Report the fraction with |Im| not ~0.
     nontrivial_im = band[np.abs(band.imag) > 0.02]
     print(f"  inertial-band modes with |Im ω|>0.02: {len(nontrivial_im)} "
-          f"({100*len(nontrivial_im)/max(len(band),1):.0f}% — Bekki sees ~10% "
+          f"({100*len(nontrivial_im)/max(len(band),1):.0f}% — Bekki et al. 2022 see ~10% "
           f"high-k artifacts + the physical damping branches)")
     print("========================================\n", flush=True)
 
@@ -257,7 +257,7 @@ def main(argv=None):
     p.add_argument("--backend", default="collocated",
                    choices=["collocated", "staggered", "sh_fd", "dedalus"],
                    help="discretization backend (collocated or the "
-                        "Bekki-matching staggered Arakawa-C; staggered is "
+                        "staggered Arakawa-C of Bekki et al. 2022; staggered is "
                         "complete for hydro — use --no-strain for production)")
     p.add_argument("--m", type=int, default=8, help="azimuthal order (Fig 2: 8)")
     p.add_argument("--Ek", type=float, default=EK_FIG2,
@@ -284,7 +284,7 @@ def main(argv=None):
                    help="output basename (.npz and .png)")
     args = p.parse_args(argv)
 
-    print(f"spdee Bekki Fig-2 spectrum | backend={args.backend} m={args.m} "
+    print(f"spdee solar-eigenproblem Fig-2 spectrum | backend={args.backend} m={args.m} "
           f"Ek={args.Ek:.3e} δ={args.delta:.0e} grid={args.N_r}×{args.N_theta} "
           f"strain={'off' if args.no_strain else 'on'}", flush=True)
 

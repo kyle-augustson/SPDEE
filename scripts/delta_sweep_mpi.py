@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Parallel δ-sweep of the Bekki Figure-2 convective mode.
+"""Parallel δ-sweep of the solar-eigenproblem Figure-2 convective mode.
 
 Each MPI rank runs an independent dense eigensolve at one (or more)
 superadiabaticity value δ and reports the most-growing prograde mode in the
-Re ∈ (0.05, 0.6) box, the columnar convective mode (Bekki Fig. 2c anchor
+Re ∈ (0.05, 0.6) box, the columnar convective mode (Fig. 2c anchor of Bekki et al. 2022:
 Re ≈ +0.27, Im ≈ +0.36), so that Im(ω) can be read as a function of δ.
 
 Run (one rank per δ; each rank pins to a single core, its own serial dense
@@ -14,7 +14,7 @@ solve, so the solves run concurrently):
 
 Options:
     --deltas 1e-6,1e-5,1e-4,1e-3,1e-2   comma list of δ values (default these 5)
-    --Nr 16 --Ntheta 72                 grid (default Bekki Fig-2)
+    --Nr 16 --Ntheta 72                 grid (default of Bekki et al. 2022, Fig. 2)
     --Ek 7.123e-6                       Ekman number (default Fig-2 caption)
     --m 8                               azimuthal order
     --re-lo 0.05 --re-hi 0.6            candidate Re-box
@@ -138,7 +138,7 @@ def main(argv=None):
             print(f"\n  dIm/dlog10(δ) over [{d0:.0e},{d1:.0e}] = {slope:+.3f}")
             print("  (large slope ⇒ near threshold, form OK; "
                   "~0 ⇒ structurally decoupled)")
-        print("  Bekki Fig-2c anchor: Re~+0.27, Im~+0.36", flush=True)
+        print("  Fig. 2c anchor of Bekki et al. 2022: Re~+0.27, Im~+0.36", flush=True)
         np.savez(args.out, deltas=np.array(deltas), **save)
         print(f"\n[save] {args.out}", flush=True)
 

@@ -1,5 +1,5 @@
 """Preconditioning and convergence aids (spdee.analysis.precondition):
-equilibration of the certified Bekki staggered pencil leaves the eigenvalues
+equilibration of the certified solar-eigenproblem staggered pencil leaves the eigenvalues
 unchanged and cuts the condition number of (K - sigma M) by a stated factor;
 deflating a converged mode removes it from the next solve; the two-grid
 preconditioner lowers bbjd's iteration count on the viscous inertial pencil
@@ -36,7 +36,7 @@ SIGMA = -2j / 3 + 0.02
 
 
 def test_equilibration_solar_pencil():
-    """The Bekki Figure-2 hydro system on the C-grid at m = 8: entries from
+    """The solar-eigenproblem Figure-2 hydro system on the C-grid at m = 8: entries from
     1e-5 to 1e7 across the (v, rho1, s1) blocks."""
     from test_staggered_mhd import hydro_system, compile_stag, EK, M as M_AZ
     cp = compile_stag(hydro_system(EK), 12, 24)
@@ -47,7 +47,7 @@ def test_equilibration_solar_pencil():
     eq = an.equilibrate(K, M, sigma)
     blocks = [f.slice for f in cp.layout.fields]
     eq_block = an.equilibrate(K, M, sigma, row_blocks=blocks, col_blocks=blocks)
-    print(f"BENCH | Bekki staggered 12x24 m=8: {eq}\nBENCH | per block: {eq_block}")
+    print(f"BENCH | solar-eigenproblem staggered 12x24 m=8: {eq}\nBENCH | per block: {eq_block}")
     assert eq.improvement > 1e4 and eq_block.improvement > 1e3
     ref, _ = solvers.shift_invert(K, M, sigma, 6)
     lam, V = solvers.shift_invert(eq.K, eq.M, sigma, 6, return_vectors=True)

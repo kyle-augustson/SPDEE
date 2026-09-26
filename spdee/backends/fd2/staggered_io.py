@@ -1,5 +1,5 @@
 """spdee.backends.fd2.staggered_io — interpolation between the collocated
-grid and Arakawa-C (Bekki-style) staggered grids.
+grid and Arakawa-C (solar-eigenproblem-style) staggered grids.
 
 The collocated grid stores every unknown at the same `(r, θ)` nodes:
 ``r`` includes both endpoints (`N_r` nodes) and ``θ`` is cell-centered
@@ -257,22 +257,22 @@ def to_staggered(
             v_r_coloc = v_0
             v_th_coloc = (v_p1 + v_m1) / np.sqrt(2.0)
             v_phi_coloc = 1j * (v_m1 - v_p1) / np.sqrt(2.0)
-            v_r_bekki = interpolate_2d_in_r(
+            v_r_se = interpolate_2d_in_r(
                 v_r_coloc, r_src, r_f_tgt, order=order,
             )
             v_th_at_rc = interpolate_2d_in_r(
                 v_th_coloc, r_src, r_c_tgt, order=order,
             )
-            v_th_bekki = interpolate_2d_in_theta(
+            v_th_se = interpolate_2d_in_theta(
                 v_th_at_rc, th_src, th_f_tgt, order=order,
                 pole_value=0.0,
             )
-            v_phi_bekki = interpolate_2d_in_r(
+            v_phi_se = interpolate_2d_in_r(
                 v_phi_coloc, r_src, r_c_tgt, order=order,
             )
-            out[f"{name}_r"] = v_r_bekki
-            out[f"{name}_theta"] = v_th_bekki
-            out[f"{name}_phi"] = v_phi_bekki
+            out[f"{name}_r"] = v_r_se
+            out[f"{name}_theta"] = v_th_se
+            out[f"{name}_phi"] = v_phi_se
         else:
             out[name] = interpolate_2d_in_r(
                 val, r_src, r_c_tgt, order=order,

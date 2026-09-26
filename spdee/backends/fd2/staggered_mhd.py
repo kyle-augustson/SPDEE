@@ -341,7 +341,7 @@ def ct_lorentz_blocks(ct: CTGrid, B0, pre) -> Dict[Tuple[str, str], sp.spmatrix]
 
     j is brought to the faces by the plain two-point averages (K_to_vr,
     K_to_vth, tf_to_c, rf_to_c) with B0 evaluated at the face: the
-    constrained-transport recipe of the seed code."""
+    constrained-transport recipe of the reference implementation."""
     blocks: Dict[Tuple[str, str], sp.spmatrix] = {}
     RintR, tcR_i, rcT_i, TintT, rcC, tcC = ct.RintR, ct.tcR_i, ct.rcT_i, ct.TintT, ct.rcC, ct.tcC
     pre_vr, pre_vth, pre_vphi = (_dd(p) for p in pre)

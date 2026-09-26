@@ -126,7 +126,7 @@ or toroidal-poloidal decomposition.
 
 1. **LBB checkerboard for pressure**: the primitive-variable
    formulation with colocated FD has the classical pressure
-   checkerboard (`tests/test_checkerboard_probe.py`). The Bekki replication (Stage T-2+) avoids this by
+   checkerboard (`tests/test_checkerboard_probe.py`). The solar-eigenproblem replication (Stage T-2+) avoids this by
    using the compressible continuity equation directly (with ρ_1
    as an explicit unknown) — no pressure unknown is needed.
    Workarounds for incompressible Stokes-like systems: pressure

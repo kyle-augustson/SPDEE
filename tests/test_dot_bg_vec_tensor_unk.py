@@ -479,7 +479,7 @@ class TestManufacturedSolution:
 
 
 # ============================================================================
-# Solar-background integration test (the actual Bekki use case)
+# Solar-background integration test (the actual solar-eigenproblem use case)
 # ============================================================================
 
 class TestSolarIntegration:
@@ -501,7 +501,7 @@ class TestSolarIntegration:
         )
 
     def test_solar_viscous_term_compiles(self, solar_bg):
-        """The full Bekki viscous force
+        """The full solar-eigenproblem viscous force
             ν·[Lap(v) + (1/3)·Grad(Div(v)) + Dot(grad_ln_rho_0, strain)]
         compiles cleanly on a solar background, without introducing
         any auxiliary state.

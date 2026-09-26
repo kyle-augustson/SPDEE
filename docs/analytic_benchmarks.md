@@ -5,7 +5,7 @@ eigenvalue problem with an analytic spectrum, written once as a
 `spdee.Problem` from strings and handed to all four numerical cores -- the
 collocated fd2 core, the staggered (Arakawa-C) core, the sh_fd core and the
 Dedalus core -- at two resolutions.  The point of the set is that it is not
-tuned to the Bekki solar problem: it exercises Grad/Div, the Coriolis pair,
+tuned to the solar eigenproblem: it exercises Grad/Div, the Coriolis pair,
 advection by a mean flow, buoyancy, induction and the Lorentz force against
 values that come from a derivation rather than from another code.
 

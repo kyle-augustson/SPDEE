@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Classify the growing modes of the Bekki Figure-2 system by their
+"""Classify the growing modes of the solar-eigenproblem Figure-2 system by their
 eigenfunctions.
 
 For each growing mode in the inertial band the script pulls the eigenvector
@@ -7,14 +7,14 @@ and reports the diagnostics that separate a columnar convective mode from a
 spurious one:
 
   - KE partition (v_r, v_θ, v_φ): a columnar convective mode is v_φ-dominant
-    outside the tangent cylinder with substantial v_r (Bekki §3.2.1); a toroidal
+    outside the tangent cylinder with substantial v_r (Bekki et al. 2022, §3.2.1); a toroidal
     Rossby-like mode is v_θ-dominant; a spurious scalar mode has little KE
     coherence.
   - v_r↔s₁ phase: convective growth requires Re⟨v_r s₁*⟩ > 0 (buoyancy does
     positive work). Quadrature (~90°) ⇒ no buoyancy work.
   - Nyquist (checkerboard) content of s₁: fraction of s₁ power at the grid
     Nyquist (+−+− cell-to-cell). High ⇒ collocated-grid scalar artifact.
-  - radial-node structure of v_φ at the equator (Bekki's convective selector:
+  - radial-node structure of v_φ at the equator (the convective selector of Bekki et al. 2022:
     n_radial(v_r)=0, n_radial(v_φ)=1).
 
 Run (single process; shift-invert per target, fast):
@@ -107,7 +107,7 @@ def main():
     p.add_argument("--select", choices=["fastest", "largest-re"],
                    default="fastest",
                    help="which growing mode family to rank first: 'fastest' "
-                        "(max Im) or 'largest-re' (Bekki Fig-2 red-dot mode)")
+                        "(max Im) or 'largest-re' (red-dot mode of Bekki et al. 2022, Fig. 2)")
     p.add_argument("--order_r", type=int, default=4)
     p.add_argument("--order_theta", type=int, default=4)
     args = p.parse_args()
@@ -130,11 +130,11 @@ def main():
            if np.isfinite(w) and w.imag > 1e-4 and abs(w.real) < 2.0]
 
     if args.select == "largest-re":
-        # Bekki's Fig-2 red-dot criterion: the unstable mode with the LARGEST
+        # The Fig. 2 red-dot criterion of Bekki et al. (2022): the unstable mode with the LARGEST
         # real frequency (the most strongly prograde columnar convective mode,
         # the cleanest archetype — see §3.2, Table 2). Sort by Re desc.
         idx.sort(key=lambda i: -om[i].real)
-        print("\n  SELECT=largest-Re unstable mode (Bekki red-dot criterion).")
+        print("\n  SELECT=largest-Re unstable mode (red-dot criterion of Bekki et al. 2022).")
     else:
         idx.sort(key=lambda i: -om[i].imag)
         print("\n  SELECT=fastest-growing (largest Im).")
@@ -151,7 +151,7 @@ def main():
               f"{kr:.2f}/{kt:.2f}/{kp:.2f}     "
               f"{d['vrs1_phase_deg']:+6.0f}°   {d['vrs1_ReC']:+.2f}   "
               f"{d['nyq_s1']:.2f}     {d['n_vr']}   {d['n_vph']}")
-    print("\n  Columnar convective (Bekki §3.2.1): v_φ-dominant, substantial "
+    print("\n  Columnar convective (Bekki et al. 2022, §3.2.1): v_φ-dominant, substantial "
           "v_r, Re(C)>0 (in-phase), LOW Nyq(s1), n_vr=0, n_vφ=1.")
     print("  Spurious/checkerboard: HIGH Nyq(s1), incoherent KE, Re(C)≈0.")
     print("  Toroidal (Rossby-like): v_θ-dominant, tiny v_r.")

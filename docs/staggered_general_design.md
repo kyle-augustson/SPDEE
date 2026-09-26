@@ -20,7 +20,7 @@ The physics this must cover, each of which couples an evolution equation to a co
 | inviscid / viscous rotating flow | Dt(v) + ... + Grad(p) | Div(v) = 0 | p |
 | Boussinesq convection | Dt(v) + ..., Dt(T) + ... | Div(v) = 0 | p |
 | anelastic | Dt(v) + ..., Dt(s) + ... | Div(rho0 v) = 0 | p (or reduced pressure) |
-| fully compressible (Bekki) | Dt(v), Dt(rho1), Dt(s1) | none (continuity is evolutionary) | none |
+| fully compressible (solar eigenproblem) | Dt(v), Dt(rho1), Dt(s1) | none (continuity is evolutionary) | none |
 | induction, b formulation | Dt(b) = Curl(Cross(v, B0)) + eta Lap(b) | Div(b) = 0 | none: an involution |
 | induction, A formulation | Dt(A) = ... - Grad(psi) | Div(A) = 0 (Coulomb gauge) | psi |
 
@@ -196,14 +196,14 @@ constraint is assigned to, section 4).
 | task kind | block | pairing rule | stage-2 builder (`staggered_general`) |
 |---|---|---|---|
 | identity (scalar, vector, tensor) | diagonal on the unknown's own DOFs | coefficient evaluated at the DOF location | `_Assembly.identity`: `sp.eye` per placement block, coefficient on each block's sub-grid, A or B by target; on an eliminated tensor the block is composed with its definition |
-| grad_scalar | G: centres to faces (`_build_staggered_gradient_blocks`) | primal | `_CGridOps.gradient` (the three blocks stacked in face order), coefficient on the faces; Grad(M s), which the walker distributes over sums of weighted unknown scalars and expands into a tagged product-rule pair (`grad_weight`), is built from the pair as G diag(M) with M on the centres (the seed's spelling of the pressure gradient) |
+| grad_scalar | G: centres to faces (`_build_staggered_gradient_blocks`) | primal | `_CGridOps.gradient` (the three blocks stacked in face order), coefficient on the faces; Grad(M s), which the walker distributes over sums of weighted unknown scalars and expands into a tagged product-rule pair (`grad_weight`), is built from the pair as G diag(M) with M on the centres (the reference implementation's spelling of the pressure gradient) |
 | div_vector_scalar | Div = -W_c^-1 G^T W_v (norm adjoint of G) (`build_staggered_grad_div_pair`) | adjoint of grad, so the saddle-point pair is exactly skew | `_CGridOps.divergence(M)`: -W_c^-1 G^T (M W_v); the walker expands Div(M u) into a tagged task pair (`div_weight`) that the dispatcher consumes as one block; a constraint row may carry only a constant scale |
 | lap_scalar | Div Grad with the flux stencils (`_radial_flux_stencils`, wall closure from the BC) | self-adjoint, NSD | `build_staggered_scalar_laplacian(wall_bc=(inner, outer))`, closures from the scalar's BC tasks (natural Neumann without one); with a `dot_bg_vec_grad_scalar` of the same equation whose background is radial and whose coefficient is a radial multiple a_r of the (constant) Lap coefficient, the pair is the w-weighted Laplacian `build_staggered_weighted_scalar_laplacian` with w = exp(integral a_r dr) by the trapezoid rule on the union radii (the certified P0 recovery of the hand assembler, bitwise) |
 | lap_vector | the strain Gram on the constraint manifold, the true vector Laplacian off it | self-adjoint, NSD | `build_staggered_weighted_viscous_gram(wall_bc)` (= Lap + (1/3) Grad Div, i.e. Lap on the constraint manifold), the closure from the vector's tangential BC tasks; the Gram stands in for Lap(u) only where the two agree -- an unknown that carries a divergence constraint (`record['constraints']`, saddle point or involution) or an equation that writes Lap(u) + (1/3) Grad(Div(u)) itself, which is the compressible viscous force -- and otherwise Lap(u) is the Gram less (1/3) `build_staggered_grad_div` (section 3a); read together with the equation's grad_div, symmetric-strain and trace terms on the same unknown (`_Assembly.viscous_force`): with a . (Grad u + Grad u^T) - (2/3) a Div(u), a radial and proportional to the Lap coefficient, the Gram is density-weighted with w = exp(integral a_r dr) recovered by adaptive quadrature (matches the hand assembler's rho0 to rounding); otherwise the extra terms are built on their own |
 | grad_div_vector | G Div | part of the viscous Gram when present | `build_staggered_grad_div` scaled by (c_g - c_l / 3) on top of the Gram, so Lap + (1/3) Grad Div is one Gram (the compressible force) and Lap + Grad Div is Gram + (2/3) Grad Div; on its own, c_g G Div |
 | curl_vector | faces to edges (`build_staggered_curl`) then back to the faces by the Hodge maps | the edge curl of the primal complex | `_Assembly.curl_vector`: `_CGridOps.curl_to_faces`, the primal curl with the unknown's tangential ghost closure (the pole v_theta read through the |m| = 1 prolongation, section 3b), then hodge(CE, RC), hodge(RC, CE), hodge(EE, CC) |
 | curl_curl_vector | Curl Curl u on the faces | the dual curl of the primal curl, so Div Curl = 0 is inherited | `_CGridOps.curl_curl` (`_Assembly.curl_curl_vector`); on an involution unknown it is dispatched to the CT resistive blocks instead (`involution_diffusion`), on a vector potential to `potential_diffusion` |
-| cross_vector (Cross(B0, v), Coriolis) | interpolate the two partner components to the target face, multiply by the background component at the target face | the two off-diagonal blocks of each component pair are exact W-adjoints (the 'center' Coriolis pairing generalised: background evaluated on the centres of the pair, interpolations paired as P and W^-1 P^T W) | `_Assembly.cross_vector`: per component pair the third background component (times the coefficient) on the pair's host grid (CC for the pairs with v_phi, CE for (v_r, v_theta), so the ball origin ring only receives), blocks P D and -D W^-1 P^T W; verified W-skew to 2e-16 for b(r, theta) with all three components on shell and ball; 'seed' / 'adjoint' pairings kept for the certification |
+| cross_vector (Cross(B0, v), Coriolis) | interpolate the two partner components to the target face, multiply by the background component at the target face | the two off-diagonal blocks of each component pair are exact W-adjoints (the 'center' Coriolis pairing generalised: background evaluated on the centres of the pair, interpolations paired as P and W^-1 P^T W) | `_Assembly.cross_vector`: per component pair the third background component (times the coefficient) on the pair's host grid (CC for the pairs with v_phi, CE for (v_r, v_theta), so the ball origin ring only receives), blocks P D and -D W^-1 P^T W; verified W-skew to 2e-16 for b(r, theta) with all three components on shell and ball; 'solar_eigenproblem' / 'adjoint' pairings kept for the certification |
 | dot_bg_vec_unk_vec_scalar (Dot(B0, v) in a scalar equation) | faces to centres with the norm-adjoint of the centre-to-face interpolation, background at the centre | adjoint to bg_vec_times_unk_scalar | `_Assembly.dot_bg_vec_unk_vec_scalar`: [D_r hodge(RC,CC), D_t hodge(CE,CC), D_p] with the adjoint interpolations |
 | bg_vec_times_unk_scalar (B0 s in a vector equation) | centres to faces, background at the face | adjoint partner of the previous | `_Assembly.bg_vec_times_unk_scalar`: [D_r hodge(CC,RC); D_t hodge(CC,CE); D_p]; the pair is exactly W-adjoint for constant backgrounds and to the interpolation error (first order entrywise, second order on smooth fields) otherwise |
 | dot_bg_vec_grad_scalar (B0 . Grad s) | B0-weighted gradient on the centres | consistent with grad_scalar | `_Assembly.dot_bg_vec_grad_scalar`: the gradient blocks averaged to the centres (plain average: no partner block) and contracted with B0 there |
@@ -215,7 +215,7 @@ constraint is assigned to, section 4).
 | identity_tensor, tensor_of_vector (a tensor equation) | the unknown's tensor blocks; the tensor map of the vector terms | the walker reduces the vector terms of a tensor equation as one symbolic sum (SymPy coefficients only) and reports its symmetry | `_Assembly.identity`, `_Assembly.tensor_of_vector` on a tensor with DOFs; a definition without Dt is eliminated (section 4) |
 | div_tensor_unk, dot_bg_vec_unk_tensor (Div(T), Dot(B0, T), Dot(T, B0) of a tensor unknown) | the norm-adjoint divergence with the pole share / the Hodge-paired contraction of T's placement | as the vector cases | `_Assembly.div_tensor_unk`, `_Assembly.dot_bg_vec_unk_tensor`, composed with the definition when T is eliminated |
 | curl_cross_unk_bg (Curl(Cross(v, B0)), induction) | the CT induction blocks (`ct_induction_blocks`) | div-free by construction (Div Curl = 0 on the fluxes) | `_Assembly.curl_cross_unk_bg`: E = c_E (v x B0) on the edges with B0 there, the wall circulations masked at a conducting wall, the incidence curl onto the face fluxes; a face unknown that is not an involution is divided by the face areas and its wall circulations follow v's wall (masked where v is no-slip) |
-| cross_curl_unk_bg (Cross(Curl(b), B0), Lorentz) | the CT Lorentz blocks (`ct_lorentz_blocks`) | j = Curl b on the edges from the physical b = Phi / area, the plain two-point averages to the faces, B0 at the face (the seed's CT recipe, which the certification pins) | `_Assembly.cross_curl_unk_bg`, the coefficient restricted to the interior r- / theta-edges and the centres |
+| cross_curl_unk_bg (Cross(Curl(b), B0), Lorentz) | the CT Lorentz blocks (`ct_lorentz_blocks`) | j = Curl b on the edges from the physical b = Phi / area, the plain two-point averages to the faces, B0 at the face (the reference implementation's CT recipe, which the entrywise comparison pinned) | `_Assembly.cross_curl_unk_bg`, the coefficient restricted to the interior r- / theta-edges and the centres |
 | cross_curl_curl_unk_bg (Cross(Curl(Curl(A)), B0), the vector potential's Lorentz force) | `curl_curl` then the Hodge-paired cross block | j returns to the faces before the product, so the pairing is that of cross_vector | `_Assembly.cross_curl_curl_unk_bg` |
 | laph_scalar | angular part of the scalar Laplacian | self-adjoint | `build_staggered_angular_laplacian` (the theta stencils of the scalar Laplacian) |
 | source terms (scalar, vector, tensor) | right-hand side at the equation's rows | | `_Assembly.source` into `StaggeredCompiledMatrices.b_total`, a tensor source evaluated component by component at the placement's locations |
@@ -239,7 +239,7 @@ face unknown that carries a divergence constraint (section 4: a saddle point or 
 involution) -- which is where the certified entrywise identities live, the inertial
 saddle point and the constrained-transport MHD pencil -- and it is the right block when
 the equation writes `Lap(u) + (1/3) Grad(Div(u))` itself, which is the compressible
-viscous force of the Bekki momentum equation.  Everywhere else it builds a different
+viscous force of the solar-eigenproblem momentum equation.  Everywhere else it builds a different
 operator from the one the user wrote.  Measured on a smooth non-solenoidal field
 (shell, m = 2, interior rows): `|(Gram - Lap) u| / |Lap u|` = 2.33e-1, 2.31e-1, 2.30e-1
 at N = 24, 48, 96, no convergence, while `|(Gram - Lap - GradDiv/3) u| / |Lap u|` =
@@ -263,13 +263,13 @@ pole of the curl, neither of which is the vector Laplacian.
 The theta-face DOFs of a face unknown at `theta = 0` and `theta = pi` are not degrees of
 freedom: the face has zero area and zero volume weight, the strain Gram zeroes their rows
 through the norm guard and reads the adjacent interior value instead at |m| = 1
-(`_pole_vtheta_prolongation`), and the seed code does not carry them at all.  Left alone
+(`_pole_vtheta_prolongation`), and the reference implementation does not carry them at all.  Left alone
 they are an accident: `A_total` has 2 N_r rows that are empty or filled with the
 1 / sin(theta) guard of a curl while `B_total` keeps the identity there, so the pencil
 reads `0 = lambda x` and carries that many spurious zero eigenvalues, and a
 boundary-value problem has no equation for them at all.  `_pole_face_rows` makes the pin
 explicit -- a Dirichlet row, no mass -- and `compile_staggered_general` reports the
-reduced-state indices as `constraints['pinned']`, which is the seed's convention
+reduced-state indices as `constraints['pinned']`, which is the reference implementation's convention
 `v_theta(pole) = 0`.  At |m| = 1 the primal curl reads the pole DOF through the same
 prolongation (`_CGridOps.primal_curl`): the pole closure of curl_r is the limit of
 [(sin(theta) v_phi)' - i m v_theta] / sin(theta), whose numerator vanishes at the pole for a
@@ -287,13 +287,13 @@ between N = 24 and 48 (`docs/OPERATOR_COVERAGE.md` does not see it at N = 12, 24
 m = 0 and |m| = 1 (the limit vanishes: entrywise the same Gram) and touches only the
 pole-adjacent v_phi rows otherwise, but it is not a norm adjoint, so W F loses
 Hermiticity on that ring and the certified m = 8 pencil moves: in
-`scripts/certify_staggered_vs_seed.py --nr 12 --nt 48` with the closure the (vp, vt)
+the entrywise comparison with the reference implementation, with the closure, the (vp, vt)
 block's maximum grows from 2.982 to 3.379, its per-term viscous coefficient from
 0.9994 to 1.2204 (the fit sees the new O(1/dtheta^2) entries) and the diffusive-group
 residual of that block from 4.4e-4 to 1.5e-1 of the block maximum (pole rows 1.4e-1,
 interior rows 1.6e-4, unchanged), while the sectoral Rossby mode (-0.219817-0.019127j),
 its attribution table and the 611-mode dense window are the pinned ones to every printed
-digit.  It stays off by default (the seed's own pole treatment is the weightless one), a
+digit.  It stays off by default (the reference implementation's own pole treatment is the weightless one), a
 decision for the certification rather than for this document.  `Problem.compile` does not
 forward the keyword; it is reached through `compile_fd2_staggered` /
 `compile_staggered_general`.
@@ -562,7 +562,7 @@ recorded here because their reference no longer exists:
 - inertial (`_assemble_inertial_cgrid`) on the Zhang system: max |A - A_ref| = 0, likewise
   B and the layout, on shell and ball, m = 0, 1, 2, inviscid and viscous with stress-free
   and no-slip walls, through the object API and through strings (stage 2);
-- compressible (`_assemble_compressible_cgrid`) on the Bekki system entered as strings:
+- compressible (`_assemble_compressible_cgrid`) on the solar eigenproblem entered as strings:
   the same layout, B exact, A exact at Ek = 0, and with Ek != 0 every block exact but the
   viscous (<= 8e-15 of its maximum, the density weight recovered by quadrature) and the
   thermal (2e-16) (stage 3);
@@ -589,7 +589,7 @@ and the classification record replaces what the recognisers used to return.
   core on the same strings (no closed form), and the non-rotating spherical benchmark of
   Chandrasekhar for internal heating with stress-free walls where the critical values are
   tabulated.
-- Anelastic: the Bekki polytrope with `Div(rho0 v) = 0` in place of the continuity
+- Anelastic: the solar-eigenproblem polytrope with `Div(rho0 v) = 0` in place of the continuity
   equation, against the Dedalus core.
 - Induction with the b formulation and the involution: free-decay modes of a conducting
   sphere/shell (toroidal and poloidal decay rates from spherical Bessel conditions), Alfven
@@ -628,11 +628,11 @@ while the poloidal family, which does not see j_r at the pole, is unaffected.  F
 `jr_bphi` matrices are bitwise equal), so the pattern path's `pole_closure=False` and the
 general path agree wherever the certification runs.
 
-**b against A on the same physics** (2 kG dipole on the Bekki polytrope, conducting,
+**b against A on the same physics** (2 kG dipole on the solar-eigenproblem polytrope, conducting,
 m = 8, `tests/test_staggered_mhd.py::test_b_and_A_formulations_agree_on_the_field_induced_shift`).
 Field-induced Rossby shift, general path: 10x24 db = -0.06439-0.00738i,
 dA = -0.06849-0.00963i (|db - dA| = 4.68e-3); 20x48 db = -0.06757-0.00901i,
-dA = -0.06853-0.01027i (1.58e-3).  The flux formulation lands on the seed Dedalus value
+dA = -0.06853-0.01027i (1.58e-3).  The flux formulation lands on the reference Dedalus value
 -0.0676-0.0091i and the vector potential on the spdee Dedalus value -0.0686-0.0102i, the
 two references of `test_shift_matches_dedalus_backend`; the two staggered formulations
 close on each other at about first order between these two grids (the difference is the
@@ -661,7 +661,7 @@ four edge-to-face maps of `ct_lorentz_blocks` as W_face^-1 P^T W_edge of the ind
 interpolations, with B0 at the edge, does not make the ideal pencil skew (max |Im omega|
 0.34 at 12x24, 0.17 at 24x48, no better than the CT recipe's 7.4e-14 / 6.7e-3 once the
 wall mask is right) and it breaks the entrywise identity with the certified code, so the
-plain two-point averages of the seed's recipe are the only Lorentz pairing.
+plain two-point averages of the reference implementation's recipe are the only Lorentz pairing.
 
 ## 9. Staging
 
@@ -695,12 +695,12 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    W-adjoint buoyancy / advection pair (1e-16) on the reduced pencil, no row empty in both A
    and B, and its least-damped eigenvalue at Ra = 2.5, Ek = 1e-2, m = 2 converges at second
    order (errors 1.12e-3, 2.77e-4, 6.89e-5 at 12x24, 24x48, 48x96) to the Dedalus value
-   -0.02510814 + 0.04842610i on the same strings; the anelastic Bekki polytrope with
+   -0.02510814 + 0.04842610i on the same strings; the anelastic solar-eigenproblem polytrope with
    `div(rho0*v) = 0` classifies with weight rho0 and its Grad / Div pair is adjoint under
    the rho0-weighted norm to 2e-16.  The pattern assemblers and recognisers stay in place
    until stage 5.
 3. Compressible path through the dispatcher; entrywise identity with
-   `_assemble_compressible_cgrid` on the Bekki system; delete the recogniser.  Tensor
+   `_assemble_compressible_cgrid` on the solar eigenproblem; delete the recogniser.  Tensor
    placement (section 2b): the strain-based terms as six-component tensors, tensor unknowns
    with the first-order reduction `T - Grad(v) = 0`, Div(T) and Dot(B0, T) blocks.
 
@@ -718,7 +718,7 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    `solar_hydro_problem()` as strings, compiled with no recogniser, is the hand
    assembler's pencil (the momentum and energy rows of a rho0-weighted call, the
    continuity row of a unit-density call, since the strings carry rhat = rho1 / rho0)
-   at 12x48 and 8x16, m = 8, 0, 1, Ek != 0 and Ek = 0, delta = 0, 'center' and 'seed':
+   at 12x48 and 8x16, m = 8, 0, 1, Ek != 0 and Ek = 0, delta = 0, 'center' and 'solar_eigenproblem':
    the same layout, B exact, A exact when Ek = 0, and with Ek != 0 every block exact
    except the viscous blocks (<= 8e-15 of their maximum, the density weight recovered by
    quadrature where the hand assembler reads rho0 itself) and the thermal block (2e-16,
@@ -745,8 +745,8 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    task list (`_compressible_spec_from_tasks`).  Not identical, deliberately: the object
    system of `make_polytrope_system` spells the pressure gradient by the product rule
    with numeric backgrounds, which the general path assembles as two blocks (c Grad q on
-   the faces plus q Grad c), while the seed and the hand assembler use G(c q); the
-   certification `scripts/certify_staggered_vs_seed.py` therefore pins
+   the faces plus q Grad c), while the reference implementation and the hand assembler use G(c q); the
+   entrywise comparison with the reference implementation therefore pins
    `--assembler pattern` (the same (c) table as before; `--assembler general` changes only
    the vr,rho and vr,s rows, to 4.0e-2 and 8.1e-4), and `tests/test_staggered_mhd.py`
    builds its hydro reference on the pattern path too.  Stage 5 moves the certification
@@ -798,7 +798,7 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    bitwise the field-free one, so constrained transport adds nothing to it.  `'auto'` now
    routes a constrained-transport system to the general path;
    `build_mhd_blocks` / `extend_with_mhd` stay reachable through `assembler='pattern'`,
-   which is what `scripts/certify_staggered_vs_seed.py` and `tests/test_staggered_mhd.py`
+   which is what the entrywise comparison with the reference implementation and `tests/test_staggered_mhd.py`
    pin, and `recognize_mhd` / `MHDSpec` are deleted (the pattern path reads the same
    inputs from the task list through `staggered_compile._mhd_spec_from_tasks`).  Section 8
    carries the closed forms.
@@ -813,14 +813,14 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    `make_polytrope_system` and `make_solar_ball_system` spelled it by the product
    rule with numeric background gradients; the hand assembler recombined that pair by
    name into `G diag(c)`, so the certified operator was the grouped one all along, and the
-   general path -- which builds what is written -- differed from the seed in the
+   general path -- which builds what is written -- differed from the reference implementation in the
    `(v_r, rho1)` and `(v_r, s1)` blocks by 4.0e-2 and 8.1e-4 relative.  Both builders now
-   spell it `Grad(c q)`, the seed's and `solar_hydro_problem`'s spelling.  Measured at
+   spell it `Grad(c q)`, the reference implementation's and `solar_hydro_problem`'s spelling.  Measured at
    12x48, m = 8, nu = kappa = 2e12, delta = 1e-6: the hand pencil is bitwise unchanged by
    the respelling (max |A_new - A_old| = 0 over 2844 x 2844), the general pencil then
    agrees with it to 9.3e-15 absolute (7.7e-22 of the global maximum) with all four
    pressure blocks exactly equal and the residue confined to the viscous and Coriolis
-   blocks at <= 3.3e-16 of their own maxima, and both reproduce the seed's `vr,rho` and
+   blocks at <= 3.3e-16 of their own maxima, and both reproduce the reference implementation's `vr,rho` and
    `vr,s` rows at 5.6e-16 and 1.7e-15.
    (b) **Numeric weights under Grad and Div.**  `_emit_weighted_grad` required a
    SymPy-backed weight so it could form `Grad(M)` for the collocated product-rule pair;
@@ -837,7 +837,7 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    with `a = 1`; a system that mixes `Dt` and `Dt`-less equations is unaffected.  The two
    spellings compile to the same pencil, A and B both exact.
 
-   The certification (`scripts/certify_staggered_vs_seed.py --nr 12 --nt 48`) now runs the
+   The entrywise comparison with the reference implementation now runs the
    general path; the `ASSEMBLER` pin, its comment and the `--assembler` flag are gone.  Its
    156-line report is line for line the pinned pattern-path one -- the (c) block table, the
    per-term alpha table, the residual-after-alignment table, the theta profiles, the
@@ -868,10 +868,9 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    (a) **`lap(v)` built a different operator from the one written** unless v was
    divergence-free (section 3a).  `_Assembly.viscous_force` now decides from
    `record['constraints']` and from the group's own `Grad(Div(u))` coefficient.  The
-   certified identities are unchanged: `scripts/certify_staggered_vs_seed.py --nr 12
-   --nt 48` is line for line the pinned report except the two (a) lines the pin moves
+   certified identities are unchanged: the entrywise comparison with the reference implementation is line for line the pinned report except the two (a) lines the pin moves
    (nnz 28676 -> 28700 and max |K| on the pole rows 0 -> 1) and the three noise-floor
-   entries the stage-5 record already names, and the inertial saddle-point and Bekki
+   entries the stage-5 record already names, and the inertial saddle-point and solar-eigenproblem
    compressible pencils are bitwise what they were off the pole rows.  In the coverage
    matrix the staggered core goes from 36 PASS / 90 FAIL to 90 PASS / 36 FAIL, and every
    remaining failure is on the ball origin or the |m| = 1 pole of the curl.
@@ -879,9 +878,9 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    (b) **The pole rings were pinned by accident** (section 3b).  On the inertial ball
    pencil at 16x32 the dense census loses exactly 32 = 2 N_r eigenvalues at
    |lambda| = 5.6e-17 and every other eigenvalue is bitwise unchanged (m = 1 and m = 2,
-   976 residual-gated modes either way); on the Bekki compressible pencil at 12x48 the
+   976 residual-gated modes either way); on the solar-eigenproblem compressible pencil at 12x48 the
    certification's dense window is unchanged (611 modes in window, Rossby
-   -0.21982-0.01913j, max |d omega| 2.641e-01 against the seed, identical before and
+   -0.21982-0.01913j, max |d omega| 2.641e-01 against the reference implementation, identical before and
    after) because "spdee as solved" was already the south-pole-dropped operator there.
    `A_total` and `B_total` are bitwise unchanged off the pole rows in both.  The
    inertial-mode census of `tests/test_analytic_evp.py` sees the same 2 N_r drop:
@@ -914,7 +913,7 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    3e-15 at 10x16 and 20x32 while the frequencies land within 4.6e-3 of Zhang et al.;
    `tests/test_staggered_general.py::TestBackgroundAdvection` asserts the entrywise
    identity Dot(s phi_hat, Grad v) = i m v + Cross(z_hat, v) against the assembled
-   Coriolis block on shell and ball.  The certified Bekki pencils are untouched: the
+   Coriolis block on shell and ball.  The certified solar-eigenproblem pencils are untouched: the
    strain contraction `dlnrho * Dot(er_, Grad v + Grad v^T)` is consumed by the
    density-weighted Gram before any contraction is built.  (b) **Div(T) of a
    non-symmetric tensor unknown** converges at order 2 at m = 0, 1, 2 on shell and ball
@@ -953,6 +952,6 @@ plain two-point averages of the seed's recipe are the only Lorentz pairing.
    and `Cross(Curl(vector), B0)` ball cells of the coverage matrix are PASS at order
    1.98 to 2.09, unchanged.  The shell is bitwise what it was: the constrained-transport
    pencils of `TestConstrainedTransport`, the shell decay and Alfven pencils, and the
-   certification `scripts/certify_staggered_vs_seed.py --nr 12 --nt 48` is line for line
+   entrywise comparison with the reference implementation is line for line
    the pinned report except four dense-census entries at the 1e-14 noise floor and a
    timing.

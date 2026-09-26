@@ -145,7 +145,7 @@ way. Which one is `impenetrability_host` (`compile_problem`):
   2e-6 to 9e-4 with the former θ-momentum accident), e.g. m = 1
   ω = 1.86168: 1.8e-6 / 1.5e-4 / 1.9e-5, m = 2 ω = 1.49644:
   1.3e-6 / 4.4e-4 / 3.2e-5; the constraint host converges at the
-  scheme's order only from 24×48 on (1.5e-5 at 32×64). The Bekki
+  scheme's order only from 24×48 on (1.5e-5 at 32×64). The solar-eigenproblem
   Rossby pencil (shell 0.71–0.985, m = 2) moves the same way: 6.2e-4 /
   2.9e-3 at 24×72, 2.2e-4 / 6.1e-4 at 32×96.
 
@@ -266,7 +266,7 @@ Cross block times the r² Curl(Curl) block, r-power 2, the origin rows
 inherited from CC. The A formulation of the free decay (Coulomb gauge
 as a saddle point on ψ, tangential A = 0 and ψ = 0) gives the b
 formulation's rates (shell rms order 3.5, gaps below 1e-2). The 2 kG
-dipole on the m = 8 Bekki Figure-2 shell shifts the sectoral Rossby
+dipole on the m = 8 Figure-2 shell of the solar eigenproblem shifts the sectoral Rossby
 mode by −0.0695−0.0107j (b, conducting walls through the tangential
 electric-field rows) and −0.0673−0.0090j (A) at 12×24, −0.0698−0.0106j
 and −0.0683−0.0095j at 16×32 (order 4; the Dedalus values are

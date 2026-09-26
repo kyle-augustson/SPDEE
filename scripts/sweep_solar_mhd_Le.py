@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bekki + dipolar B₀ : Lehnert-number sweep at fixed m, fixed grid.
+"""Solar eigenproblem + dipolar B₀ : Lehnert-number sweep at fixed m, fixed grid.
 
 Studies how the dominant n=0 sectoral Rossby mode shifts as the
 background magnetic-field amplitude is increased. The field is
@@ -33,7 +33,7 @@ metadata. A `manifest.json` accumulates the top-eigenvalue summary
 across all solves. The `sweep.log` captures the full progress feed.
 
 Hydro recovery: with Le=0, the spectrum bit-exactly contains the
-pure-Bekki-Step-4 result. The sweep starts at Le=0 by default so
+pure solar-eigenproblem Step 4 result. The sweep starts at Le=0 by default so
 you have an explicit hydro baseline in the output.
 """
 from __future__ import annotations
@@ -212,7 +212,7 @@ def _solve_one_cell(
         nondimensional=True, uniform_core_blend=True,
     )
 
-    _worker_log(m, Le, "system", "building Bekki + B₀")
+    _worker_log(m, Le, "system", "building solar eigenproblem + B₀")
     sys_ = make_solar_shell_system(
         solar, m_val=m, Ek=Ek, Le=Le, Pm=Pm,
         amplitude_ratio=amplitude_ratio,
@@ -394,7 +394,7 @@ def _cell_done_and_valid(path: Path) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Bekki+B₀ Le sweep at fixed m, fixed grid.",
+        description="Solar eigenproblem + B₀ Le sweep at fixed m, fixed grid.",
     )
     parser.add_argument(
         "--output-dir", type=Path, default=Path("results/Le_sweep"),
@@ -462,7 +462,7 @@ def main() -> int:
     log_listener.start()
 
     log.info("=" * 78)
-    log.info("Bekki + B₀ : Le sweep")
+    log.info("Solar eigenproblem + B₀ : Le sweep")
     log.info("=" * 78)
     log.info(f"output_dir       : {args.output_dir}")
     log.info(f"jobs             : {args.jobs}")

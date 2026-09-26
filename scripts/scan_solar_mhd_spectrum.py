@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bekki + dipolar B₀ : spectrum scan for a Figure-2-style plot.
+"""Solar eigenproblem + dipolar B₀ : spectrum scan for a Figure-2-style plot.
 
 For each m, scan a fine grid of oscillatory-frequency targets across
 the inertial band ω/Ω₀ ∈ (ω_min, ω_max), solving for `k` eigenvalues
@@ -233,7 +233,7 @@ def _dedup_spectrum(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Bekki + B₀ spectrum scan (Figure-2 style).",
+        description="Solar eigenproblem + B₀ spectrum scan (Figure-2 style).",
     )
     parser.add_argument("--output-dir", type=Path, default=Path("results/spectrum"))
     parser.add_argument("--data-dir", type=Path, default=Path("data/solar"))
@@ -278,7 +278,7 @@ def main() -> int:
     out_dir = args.output_dir
     if rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
-        print("=== Bekki+B₀ spectrum scan ===", flush=True)
+        print("=== Solar eigenproblem + B₀ spectrum scan ===", flush=True)
         print(f"  m values  : {args.m_values}", flush=True)
         print(f"  Le values : {args.Le_values}", flush=True)
         print(f"  ω band    : [{args.omega_min}, {args.omega_max}], "

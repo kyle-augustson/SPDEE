@@ -1,5 +1,5 @@
-"""The BCG22 / Bekki & Yokoyama hydro system entered as strings, in the
-spelling of the Bekki cross-validation project's Dedalus code.
+"""The BCG22 / Bekki & Yokoyama (2017) hydro system entered as strings, in the
+spelling of the solar-eigenproblem cross-validation project's Dedalus code.
 
 Nondimensionalization: length Rsun, time 1/Omega0 (Omega0 = 2 pi 456 nHz),
 velocity Rsun*Omega0; the eigenvalue is omega/Omega0.  Unknowns: v
@@ -41,9 +41,9 @@ def polytrope_exprs(r):
 def solar_hydro_problem(nu_cgs: float = 2.0e12, kappa_cgs: float | None = None,
                         delta: float = 1.0e-6, rotation: str = "uniform",
                         entropy_bc: str = "neumann") -> Problem:
-    """The Bekki hydro eigenproblem as a Problem; nu, kappa in cm^2/s, delta
+    """The solar-eigenproblem hydro system as a Problem; nu, kappa in cm^2/s, delta
     the superadiabaticity, uniform rotation at Omega0, the entropy walls
-    insulating ('neumann', Bekki) or isentropic ('dirichlet')."""
+    insulating ('neumann', as in BCG22) or isentropic ('dirichlet')."""
     if rotation != "uniform":
         raise NotImplementedError("solar_hydro_problem: only uniform rotation")
     kappa_cgs = nu_cgs if kappa_cgs is None else kappa_cgs

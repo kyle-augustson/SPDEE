@@ -752,8 +752,8 @@ def _log_gradient_weight(grids: StaggeredGrids, a_fn, rule: str):
     """A positive weight w(r) with d ln w / dr = a_r, anchored at
     w(r_edge[0]) = 1, on the union of the edge and centre radii.
     ``rule`` 'trapezoid' is the second-order P0 recovery of the thermal
-    Laplacian, which the entrywise certification against the seed
-    operator pins (the weight enters only through edge / centre ratios);
+    Laplacian, which the entrywise comparison with the reference implementation
+    pinned (the weight enters only through edge / centre ratios);
     'quadrature' integrates each interval adaptively so the weight matches
     the exact density to rounding, which the viscous Gram reads."""
     r_all = np.unique(np.concatenate([grids.r_edge, grids.r_center]))
@@ -1951,7 +1951,7 @@ class _Assembly:
         (CC, v_phi's grid, for the pairs with v_phi; CE, v_theta's grid,
         for (v_r, v_theta), so the ball origin ring only receives).
         Pairing 'center': b_j on H in both blocks, P = hodge(H, O) and its
-        adjoint hodge(O, H), so the pair is exactly W-skew. 'seed': b_j on
+        adjoint hodge(O, H), so the pair is exactly W-skew. 'solar_eigenproblem': b_j on
         each block's own output grid. 'adjoint': the base block with b_j on
         its output grid and the exact negative W-adjoint as partner."""
         col = task.unknown_name
@@ -1962,9 +1962,9 @@ class _Assembly:
         """sign * coefficient * Cross(B0, .) (side 'left') or Cross(., B0)
         (side 'right') on the faces, the coefficient folded into the
         background on the host grids."""
-        if self.pairing not in ("center", "seed", "adjoint"):
+        if self.pairing not in ("center", "solar_eigenproblem", "adjoint"):
             raise ValueError(
-                f"coriolis_pairing must be 'center', 'seed' or 'adjoint'; got "
+                f"coriolis_pairing must be 'center', 'solar_eigenproblem' or 'adjoint'; got "
                 f"{self.pairing!r}")
         side = task.metadata.get("side", "left")
         sign = task.sign if side == "left" else -task.sign
@@ -1984,7 +1984,7 @@ class _Assembly:
             else:
                 b_O = self.background(task, O, FACE_COMPONENTS[j])
                 blk_oh = eps * (sp.diags(b_O) @ P_ho)
-                if self.pairing == "seed":
+                if self.pairing == "solar_eigenproblem":
                     blk_ho = -eps * (sp.diags(b_H) @ P_oh)
                 else:
                     blk_ho = -(sp.diags(self.ops.inv_W[H]) @ blk_oh.conj().T
@@ -2421,7 +2421,7 @@ def _apply_gauge_and_walls(A, B, layout, ops: _CGridOps, record: dict,
     the normal components (inviscid: Dirichlet overwrite and the ball
     origin rows; viscous: the symmetric DOF reduction, the wall rows of the
     other impenetrable face unknowns dropped with it), in that order,
-    which the seed certification pins. A potential keeps its wall rows
+    which the entrywise comparison with the reference implementation pinned. A potential keeps its wall rows
     and, on a ball, takes the regular vector's origin fold; a flux
     unknown's origin ring (zero-area faces) is pinned at every m; a free
     wall keeps its wall fluxes. Returns (A, B, layout, kept, pinned) with

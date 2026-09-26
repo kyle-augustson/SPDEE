@@ -4,7 +4,7 @@ Selected by ``compile_fd2(..., discretization=STAGGERED)``. The pencil
 A x = λ B x is put together by ``staggered_general``, which classifies the
 walker's tasks and dispatches each to one of the block builders here (and
 to the constrained-transport builders of ``staggered_mhd``);
-``compile_fd2_staggered`` is that call. This module owns the Gilman/Bekki
+``compile_fd2_staggered`` is that call. This module owns the Gilman-type
 staggered layout:
 
   * scalars (p, ρ₁, s₁) and v_φ at cell centers (r_c, θ_c);
@@ -520,7 +520,7 @@ def compile_fd2_staggered(
     ``order_r`` / ``order_theta`` (even, default 2) set the staggered stencil
     order. The operators use a single order for both directions, so the
     lower of the two is used when they differ. ``coriolis_pairing``
-    ('center', 'seed' or 'adjoint') selects the v_φ ← v_θ Coriolis block,
+    ('center', 'solar_eigenproblem' or 'adjoint') selects the v_φ ← v_θ Coriolis block,
     see ``staggered_general._Assembly.cross_vector``. ``params`` binds
     symbolic parameters. ``pole_closure`` selects the pole closure of the
     strain Gram (``build_staggered_weighted_viscous_gram``), off by
@@ -652,7 +652,7 @@ def build_staggered_weighted_scalar_laplacian(grids, m, weight_fn, order=2,
 
         L_w f = (1/W) ∇·(W ∇f) = ∇²f + ∇ln W · ∇f
 
-    for a positive background weight W(r, θ) (e.g. P₀ for Bekki's thermal
+    for a positive background weight W(r, θ) (e.g. P₀ for the solar eigenproblem's thermal
     diffusion (1/(ρ₀T₀))∇·(κρ₀T₀∇s₁) = κ(1/P₀)∇·(P₀∇s₁), ideal gas
     ρ₀T₀ ∝ P₀). Built by inserting diag(W) on the edge flux grids and
     diag(1/W) on centers around the same flux-form Div·Grad stencils as

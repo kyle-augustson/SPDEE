@@ -406,7 +406,7 @@ def _format_le_markdown(s: Dict, sweep_dir: Path) -> str:
     p = s["params"]
     lines.append(f"# Le-sweep analysis — {sweep_dir.name}")
     lines.append("")
-    lines.append("**Bekki + dipolar B₀ Le-sweep**.")
+    lines.append("**Solar eigenproblem + dipolar B₀ Le-sweep**.")
     lines.append("")
     lines.append(f"- Grid: N_r×N_θ = {p['N_r']}×{p['N_theta']}")
     lines.append(f"- Domain: r ∈ [{p['r_inner']}, {p['r_outer']}]")

@@ -1,6 +1,6 @@
 """The toroidal band of `toroidal_eqpeak_field`: J0 is the curl of B0, the
 Lorentz prefactor is the density ratio, and the amplitude label maps to the
-Lehnert number through rho0 at the base (the Bekki cross-validation
+Lehnert number through rho0 at the base (the solar-eigenproblem cross-validation
 project's constants: rho0_ref = 0.2 g/cm^3 at r = 0.71 for B_phi(base) =
 4534 G gives Le = 1.4260e-2).
 """

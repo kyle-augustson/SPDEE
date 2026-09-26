@@ -589,7 +589,7 @@ def test_magnetic_free_decay_b(geom, m):
 
 def test_implied_involution_is_left_alone():
     """An induction equation without a written Div(b) = 0 (the Malkus and
-    Bekki MHD systems) keeps its pencil: the classifier records the implied
+    solar-eigenproblem MHD systems) keeps its pencil: the classifier records the implied
     involution but no multiplier is added."""
     pb = tae.malkus_problem(1e-2)
     cp = pb.compile(_grid("ball", 12, 4), m=1, backend="sh_fd", gauge_unknowns=["p"])

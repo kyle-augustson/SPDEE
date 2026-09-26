@@ -1,4 +1,4 @@
-"""The staggered (Arakawa-C) three-field compressible Bekki system:
+"""The staggered (Arakawa-C) three-field compressible solar eigenproblem:
 momentum, continuity/density and energy/entropy, inviscid or with the
 viscous force −Ek[∇²v + ⅓∇(∇·v)] (+ the ρ₀-stratification strain term
 ∇ln ρ₀·T) and the thermal diffusion −Ek[∇²s₁ + (dln P₀/dr)∂_r s₁].
@@ -9,7 +9,7 @@ Coverage:
     ∇·(ρ₀ v); the diffusion operators are dissipative;
   * cross-check against the collocated core: the Rossby anchor (−2/(m+1),
     neutral) and the convective ridge (growing, prograde) agree to
-    discretization error at Ek = 0 and at Bekki's Ek = 7e-6, and viscosity
+    discretization error at Ek = 0 and at the solar eigenproblem's Ek = 7e-6, and viscosity
     reduces the convective growth rate;
   * routing: the compressible systems compile from their tasks, and the
     pinned magnetic walls of the Figure-2 builder are refused.
@@ -90,7 +90,7 @@ def _matrices(backend, Nr, Nt, Ek=0.0, m=M_FIG2, strain=False, delta=1e-6):
 
 class TestStaggeredCompressibleRouting:
     def test_inviscid_three_field_compiles(self):
-        """The inviscid three-field Bekki system assembles on the staggered
+        """The inviscid three-field solar eigenproblem assembles on the staggered
         core with the layout keyed by the unknown names v_r/v_t/v_p/rho1/s1."""
         sys_ = _make_system(Ek=0.0)
         grid = _grid(12, 18)
@@ -128,7 +128,7 @@ class TestStaggeredCompressibleRouting:
         assert np.all(np.isfinite(cp.A_total.tocoo().data))
 
     def test_strain_negligible_at_physical_ek(self):
-        """At Bekki's Ek = 7e-6 the strain correction is negligible: the
+        """At the solar eigenproblem's Ek = 7e-6 the strain correction is negligible: the
         convective ridge is unchanged to a few % with and without it."""
         tgt = 0.05 + 1.0j
         g = _grid(16, 28)
@@ -398,7 +398,7 @@ class TestStaggeredViscousCrossCheck:
         assert im_vis > 0.8
 
     def test_convective_ridge_matches_collocated_viscous(self):
-        """At Bekki's Ek = 7e-6 the staggered core contains a convective
+        """At the solar eigenproblem's Ek = 7e-6 the staggered core contains a convective
         ridge mode matching the collocated ridge (growing, prograde, Im ~ 1)
         to discretization error.
 
@@ -459,7 +459,7 @@ class TestStaggeredViscousCrossCheck:
 
 class TestStaggeredStressFreeWall:
     """The viscous wall: (a) impenetrability v_r = 0 as a row+column DOF
-    elimination and (b) Bekki's stress-free tangential closure
+    elimination and (b) the solar eigenproblem's stress-free tangential closure
     ∂_r(v_tan/r) = 0 in the strain Gram, which give a cleanly damped δ = 0
     spectrum
     (TestStaggeredViscousCrossCheck.test_strongly_damped_when_no_convective_drive).
@@ -641,10 +641,10 @@ class TestStaggeredScriptWiring:
 
     def test_fastest_growing_convective_near_re_zero(self):
         """Coarse-grid probe: the fastest-growing clean convective mode
-        sits near Re ≈ 0 on the staggered (Bekki-matching)
+        sits near Re ≈ 0 on the staggered (solar-eigenproblem-matching)
         scheme — agreeing with the collocated result, so the Re≈0 peak is not
-        a collocated-grid artifact. (The largest-Re unstable mode — Bekki's
-        red-dot criterion — sits further out and is resolution-dependent; the
+        a collocated-grid artifact. (The largest-Re unstable mode — the
+        red-dot criterion of Bekki et al. 2022 — sits further out and is resolution-dependent; the
         precise value needs a converged run.)"""
         import scipy.linalg as sla
         cp = compile_problem(_make_system(Ek=7e-6, strain=False),
@@ -660,11 +660,11 @@ class TestStaggeredScriptWiring:
 
 
 # ---------------------------------------------------------------------------
-# Mimetic density/pressure-weighted diffusion (Bekki divergence form)
+# Mimetic density/pressure-weighted diffusion (solar-eigenproblem divergence form)
 # ---------------------------------------------------------------------------
 
 class TestStaggeredMimeticDiffusion:
-    """Bekki writes the diffusion operators in divergence form
+    """The solar eigenproblem writes the diffusion operators in divergence form
     (1/W)∇·(W∇·); discretizing that conservative form directly (weight on the
     edge fluxes, 1/W on centers) is self-adjoint + definite under the
     W-weighted norm, unlike the explicit ∇² + ∇lnW·∇ split. The thermal
@@ -705,7 +705,7 @@ class TestStaggeredMimeticDiffusion:
 
     def test_mimetic_thermal_preserves_ridge(self):
         """Swapping the explicit thermal split for the mimetic P₀-weighted
-        Laplacian leaves the convective ridge unchanged at Bekki's Ek (the two
+        Laplacian leaves the convective ridge unchanged at the solar eigenproblem's Ek (the two
         agree to discretization order; the mimetic one is self-adjoint)."""
         tgt = 0.05 + 1.0j
         cp = compile_problem(_make_system(Ek=7e-6, strain=False), _grid(16, 28),
@@ -769,7 +769,7 @@ class TestStaggeredStrainOperator:
 
 
 class TestStaggeredStrainStressFreeWall:
-    """The strain operator's stress-free wall closure: Bekki eq.13
+    """The strain operator's stress-free wall closure: eq. 13 of Bekki et al. (2022)
     ∂_r(v_tan/r)=0 zeros the wall tangential-shear strain (e_rθ, e_rφ wall
     rows), while keeping the Gram viscous form self-adjoint + dissipative."""
 
@@ -834,7 +834,7 @@ class TestStaggeredViscousBallGeometry:
     The strain/Gram operators are finite at the origin (1/r factors on the
     weightless origin r-edge are zero-guarded) and their origin treatment is
     audited in docs/ball_staggered.md with analytic decay-rate benchmarks in
-    tests/test_ball_staggered.py. Bekki's Fig-2 polytrope is a SHELL
+    tests/test_ball_staggered.py. The solar eigenproblem's Fig-2 polytrope is a SHELL
     background (g∝1/r², singular at the origin), so these tests pin the
     operator-level behaviour on a regular density, not a physical ball solve.
     """
@@ -864,7 +864,7 @@ class TestStaggeredViscousBallGeometry:
 
 class TestStaggeredOriginParity:
     """Radial-origin parity (ball) — the analogue of the θ-pole parity, needed
-    for converged origin accuracy (Bekki-on-ball + MHD). A regular field obeys
+    for converged origin accuracy (solar-eigenproblem-on-ball + MHD). A regular field obeys
     f(−r)=parity·f(r) at r=0 with parity (-1)^|m| (scalars) and
     (-1)^max(|m|-1,0) (vector components, all three sharing it), verified by the
     Cartesian-smooth origin expansion."""

@@ -293,7 +293,7 @@ at 48 (order 2.7) with psi of order 0.4 |A|, against 3e-3 and 2e-4 (order
 rows.  The vector potential `dt(A) - cross(v, B0) - eta lap(A) - grad(psi)
 = 0`, `div(A) = 0` with tangential A = 0 and psi = 0 therefore compiles,
 gives the conducting-wall rates on the shell and the ball at the stencil
-order, and the 2 kG dipole Rossby shift of the Bekki system in the A
+order, and the 2 kG dipole Rossby shift of the solar eigenproblem in the A
 formulation is -0.06889-0.00919j at N_r = 16, ell_max = 16 against
 -0.07060-0.01039j in the b formulation at the same resolution
 (-0.06957-0.01037j at 24 x 20, -0.06912-0.01035j at 32 x 24; the Dedalus
@@ -320,6 +320,6 @@ m = 0 is not imposed on top of the Dirichlet walls: the walls already fix
 the constant, and the extra row replaces one more divergence row and
 admits a spurious l = 0 mode with b_r (measured at lambda = 8805 on the
 shell and 2864 on the ball at N_r = 24).  An implied involution (an
-induction equation without a written constraint: the Malkus and Bekki MHD
+induction equation without a written constraint: the Malkus and solar-eigenproblem MHD
 systems) is left as it is; the record prescribes its cleaning too, but the
 certified pencils carry none.

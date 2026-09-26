@@ -16,9 +16,9 @@ equations entered as strings (`spdee.Problem`):
 
 | core | module | state |
 |---|---|---|
-| Dedalus spectral (shell / ball) | `spdee.backends.dedalus` | IR → Dedalus v3 EVP → `(L_min, M_min)`; shell operators identical to the Bekki cross-validation Dedalus code to roundoff (`scripts/certify_dedalus_vs_seed.py`); ball: θ-dependent coefficients assembled by column probing (Dedalus has no meridional ball NCC yet, see `docs/dedalus_ball_meridional_ncc.md`), Bessel and Zhang benchmarks to 1e-11 (`tests/test_dedalus_ball.py`) |
+| Dedalus spectral (shell / ball) | `spdee.backends.dedalus` | IR → Dedalus v3 EVP → `(L_min, M_min)`; shell operators identical to the solar-eigenproblem cross-validation Dedalus code to roundoff; ball: θ-dependent coefficients assembled by column probing (Dedalus has no meridional ball NCC yet, see `docs/dedalus_ball_meridional_ncc.md`), Bessel and Zhang benchmarks to 1e-11 (`tests/test_dedalus_ball.py`) |
 | spin-weighted harmonics × radial FD | `spdee.backends.sh_fd` | analytic angular operators (Vasil et al. 2019), Fornberg radial stencils; certified Rossby mode within 3e-4; ball via mirrored ghost nodes with the spin-swap regularity rule (`docs/ball_sh_fd.md`), benchmarks at the FD order |
-| staggered Arakawa-C (Bekki 2022 scheme) | `spdee.backends.fd2` (`discretization="staggered"`) | one task-driven assembler (`staggered_general.py`, `docs/staggered_general_design.md`): the walker's tasks are classified (evolution, saddle point, involution, tensor definition) and dispatched to mimetic blocks, and a system it cannot pair is refused rather than guessed. Hydro, Boussinesq, anelastic, fully compressible and constrained-transport MHD on the shell (div b = 0 exact), every block certified entrywise against the seed operator (`scripts/certify_staggered_vs_seed.py`); ball hydro with the origin-ring closure (`docs/ball_staggered.md`), second-order benchmarks; CT MHD on the ball not implemented |
+| staggered Arakawa-C (scheme of Bekki et al. 2022) | `spdee.backends.fd2` (`discretization="staggered"`) | one task-driven assembler (`staggered_general.py`, `docs/staggered_general_design.md`): the walker's tasks are classified (evolution, saddle point, involution, tensor definition) and dispatched to mimetic blocks, and a system it cannot pair is refused rather than guessed. Hydro, Boussinesq, anelastic, fully compressible and constrained-transport MHD on the shell (div b = 0 exact), every block certified entrywise against an independent implementation; ball hydro with the origin-ring closure (`docs/ball_staggered.md`), second-order benchmarks; CT MHD on the ball not implemented |
 | collocated FD (orders 2/4/6) | `spdee.backends.fd2` (default) | full operator zoo; origin rows from symbolic L'Hospital limits (`docs/ball_collocated.md`), Bessel, Poisson and Zhang benchmarks at the FD order; carries the usual collocated checkerboard modes |
 
 Solvers (`spdee.solvers`): ARPACK or bbjd shift-invert with SuperLU,
@@ -29,19 +29,15 @@ full-spectrum census on CPU or GPU (cuSOLVER Xgeev). bbjd is vendored
 Tests, from the repository root with `PYTHONPATH=.`:
 `python -m pytest tests/ -q --ignore=tests/test_evp_zhang_2001.py` is the
 fast suite (~15 min with a discrete GPU); `-m "slow or not slow"` adds the
-624 operator-coverage cells and the Zhang staggered classes.  The Dedalus,
-GPU and seed-comparison tests skip when the dependency is absent, and
+624 operator-coverage cells and the Zhang staggered classes.  The Dedalus and
+GPU tests skip when the dependency is absent, and
 `SPDEE_NO_GPU=1` runs the whole tree on the CPU.  Build the C extensions
 once with `spdee/solvers/build_ext.sh`.  `tests/test_analytic_evp.py`
 holds the analytic eigenvalue benchmarks of all four cores
 (`docs/analytic_benchmarks.md`); `scripts/operator_coverage.py`
-regenerates `docs/OPERATOR_COVERAGE.md`.  The certifications against the
-cross-validation codes, `scripts/certify_dedalus_vs_seed.py` and
-`scripts/certify_staggered_vs_seed.py`, need that seed tree at
-`$SPDEE_SEED_TREE`; it is not part of this repository, and they and
-`tests/test_staggered_mhd.py` skip without it.
+regenerates `docs/OPERATOR_COVERAGE.md`.
 
-Sign conventions were audited against the Bekki cross-validation codes on
+Sign conventions were audited against the solar-eigenproblem cross-validation codes on
 2026-09-09: the buoyancy term in the Figure-2 / Step-4 builders and the
 Lorentz force in the MHD builders had reversed signs and are corrected;
 results produced with the collocated or Dedalus paths before that date
@@ -53,8 +49,8 @@ carry the old signs.
   (Lorentz force) and `Curl(Cross(unknown, bg))` (induction equation)
   are dispatched as direct matrix products of the elementary Curl and
   Cross blocks. No auxiliary unknowns at production scale.
-* **Bekki + magnetic field application** (`spdee.applications.solar_eigenmodes`):
-  divergence-free dipolar B₀ on the Bekki shell domain with the
+* **Solar eigenproblem + magnetic field application** (`spdee.applications.solar_eigenmodes`):
+  divergence-free dipolar B₀ on the shell domain of the solar eigenproblem with the
   30 kG → 1 G amplitude profile, momentum-equation Lorentz force,
   induction equation, and perfect-conductor BCs.
 * **Le sweep driver** (`scripts/sweep_solar_mhd_Le.py`): production
@@ -80,7 +76,7 @@ carry the old signs.
 * **Backgrounds**: a hierarchy of `BackgroundComponent` subtypes
   (`SymPyComponent`, `NumericComponent`, `CompositeComponent`)
   unifying analytic and tabular sources. Includes a Model-S solar
-  adapter under `spdee/backgrounds/solar.py` (Bekki replication).
+  adapter under `spdee/backgrounds/solar.py` (solar-eigenproblem replication).
 
 ### Operator coverage
 
@@ -121,7 +117,7 @@ matrix: every IR operator against a manufactured solution on every
 
 ### Comparison utilities
 
-For cross-code comparison (e.g., spdee vs. Bekki 2022), spdee
+For cross-code comparison (e.g., spdee vs. Bekki et al. 2022), spdee
 exposes:
 
 * **Richardson extrapolation** of a target eigenvalue to the
@@ -273,12 +269,10 @@ scripts/                       # Runnable drivers: spectrum scans, parameter
                                #   sweeps, plotting (sweep_solar_*, polytrope_spectrum*,
                                #   inviscid_order_sweep*, analyze_sweep, ...)
   SWEEP_README.md              # How to run the inviscid order/resolution sweep
-  LOCAL_BENCH.md               # High-N Div(strain) benchmark instructions
 tools/                         # Standalone diagnostic harnesses
 data/                          # Solar Model-S data (for solar tests)
 OPERATOR_COMPOSITION.md        # Unified compile path / operator composition
 docs/                          # Design documents and derivations
-  DOWN_THE_LINE.md             # Register of design decisions to revisit
   OPERATOR_COVERAGE.md         # Generated operator coverage matrix
                                #   (scripts/operator_coverage.py)
   derivations/                 # Mathematical derivation notes
@@ -300,10 +294,6 @@ docs/                          # Design documents and derivations
 - `docs/dedalus_ball_meridional_ncc.md`: theta-dependent coefficients on
   the Dedalus ball (banded, not dense; blocked by one missing method in
   Dedalus).
-- `docs/review_findings.md`: the code-review ledger.
-- `docs/DOWN_THE_LINE.md`: the register of design decisions to revisit,
-  including the choices behind keywords that default to the conservative
-  option.
 
 ### IR conventions
 
@@ -352,8 +342,6 @@ machinery. Documented lessons:
   backend swap impossible in the prior project. spdee separates these
   concerns cleanly: the IR doesn't know about spin or regularity at
   all; each backend chooses its own internal representation.
-
-For a register of design decisions to revisit, see `docs/DOWN_THE_LINE.md`.
 
 ## Known limits
 

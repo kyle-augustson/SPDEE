@@ -225,7 +225,7 @@ class ToroidalField:
 def toroidal_eqpeak_field(B0_gauss: float, profile: str = "sqrtrho", a: float = 2.0,
                           shape: str = "eqpeak", r_inner: float = RMIN, r_outer: float = RMAX,
                           name: str = "B0") -> ToroidalField:
-    """The Bekki cross-validation project's toroidal band on the adiabatic
+    """The solar-eigenproblem cross-validation project's toroidal band on the adiabatic
     polytrope of `spdee.applications.solar_strings`, B0 = B_phi(r, theta)
     phi_hat with unit peak at the base:
 
@@ -519,7 +519,7 @@ def make_polytrope_system(
     constant δ of `poly`, and constant diffusivities ν = κ = Ek (Pr = 1).
     Unknowns v, ρ₁, s₁ (plus b when Le > 0); equations momentum, continuity,
     energy (plus induction when Le > 0). The pressure gradient is written
-    grouped, Grad(c q), the spelling of the seed code: the staggered core
+    grouped, Grad(c q), the spelling of the reference implementation: the staggered core
     builds it as one mimetic gradient G diag(c) and the collocated core
     expands it by the product rule itself.
 
@@ -568,7 +568,7 @@ def make_polytrope_system(
         Reference density for the Lorentz prefactor (Le > 0 only); None means
         ρ₀ at r_inner.
     entropy_bc : 'dirichlet' or 'neumann', default 'neumann'
-        Entropy condition at the radial walls (Bekki: insulating, Neumann).
+        Entropy condition at the radial walls (the solar eigenproblem: insulating, Neumann).
     geometry : 'shell' or 'ball', default 'shell'
         Must match the grid.
     with_grad_lnrho_strain : bool, default True
@@ -794,7 +794,7 @@ def make_solar_ball_system(
     omega0_nHz: float = OMEGA0_NHZ,
     cp_ref: Optional[float] = None,
 ):
-    """Bekki-style eigensystem on a Model S ball with uniform rotation.
+    """Solar-eigenproblem-style eigensystem on a Model S ball with uniform rotation.
 
     The equations of `make_polytrope_system` (momentum, continuity,
     energy; unknowns v, ρ₁, s₁; aux-free) with the background taken from

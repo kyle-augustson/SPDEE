@@ -789,8 +789,8 @@ class TestSolarBallStaggered:
     compressible assembler (mimetic viscous/thermal + r^n origin regularity).
 
     This is the infrastructure test: a REAL solar background on the full ball
-    r∈[0, r_outer], reusing the verified Bekki non-dimensionalization, with the
-    physical N²(r) (convective CZ + stable radiative core) replacing Bekki's
+    r∈[0, r_outer], reusing the verified solar-eigenproblem non-dimensionalization, with the
+    physical N²(r) (convective CZ + stable radiative core) replacing the solar eigenproblem's
     constant-δ source, and uniform Ω₀. Low resolution here; production runs
     (high N_r, shift-invert) are for a production run.
     """
@@ -828,7 +828,7 @@ class TestSolarBallStaggered:
 
     def test_solar_ball_loop_recovers_physical_N2(self, have_solar_data):
         """The buoyancy×entropy-source product reproduces the PHYSICAL Model S
-        N²(r) (c_p kept in the source, per Bekki eq. 10) — positive (stable) in
+        N²(r) (c_p kept in the source, per eq. 10 of Bekki et al. 2022) — positive (stable) in
         the radiative interior, negative (convective) in the CZ."""
         import numpy as np
         from spdee.backgrounds.solar import SolarBackgrounds

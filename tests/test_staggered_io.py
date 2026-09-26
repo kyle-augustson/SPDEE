@@ -124,7 +124,7 @@ class TestInterpolate2DInTheta:
         N_th = 12
         # spdee cell-centered θ: (j+½)π/N_θ. Excludes 0 and π.
         src_th = (np.arange(N_th) + 0.5) * np.pi / N_th
-        # Bekki θ-faces include 0 and π.
+        # Solar-eigenproblem θ-faces include 0 and π.
         tgt_th = np.arange(N_th + 1) * np.pi / N_th
         vals = np.random.RandomState(1).randn(8, N_th)  # 8 in r
         out = interpolate_2d_in_theta(
@@ -267,7 +267,7 @@ class TestEigenmodeRoundTrip:
 
     This is the genuine test of whether the staggered-IO module
     captures the data faithfully — it uses the actual mode structure
-    from Bekki Step 4, not a contrived analytic field."""
+    from the solar-eigenproblem Step 4, not a contrived analytic field."""
 
     @pytest.mark.slow
     def test_step4_rossby_mode_round_trip(self):
@@ -281,7 +281,7 @@ class TestEigenmodeRoundTrip:
             cell-center adjacent to the pole gets clipped),
           * the conversion physical ↔ spin (exact arithmetic).
 
-        At N_r=48 with the Bekki shell [0.71, 0.985], Δr ≈ 5.7e-3
+        At N_r=48 with the solar-eigenproblem shell [0.71, 0.985], Δr ≈ 5.7e-3
         so Δr⁵ ≈ 6e-12 — the truncation contribution is negligible.
         The dominant residual at this resolution is the pole-clip
         of v_θ; for the n=0 sectoral Rossby mode v_θ ∝ sin θ so
@@ -371,7 +371,7 @@ class TestLayoutShiftSensitivity:
     DOES matter, and the residual is the price spdee pays for being
     colocated rather than staggered.
 
-    Sandbox empirical result (Bekki shell, m=3, Ek=3e-3, Neumann
+    Sandbox empirical result (solar-eigenproblem shell, m=3, Ek=3e-3, Neumann
     entropy, N_θ=48): the layout-shift residual at adjacent N_r
     decays at roughly the same rate as the Richardson-extrapolation
     residual itself. By N_r ≈ 48 both are ~5×10⁻⁵, well below 0.1%
@@ -446,7 +446,7 @@ class TestLayoutShiftSensitivity:
         print(
             "  Interpretation: this is the 'layout residual' — what "
             "you'd see between\n"
-            "  spdee (colocated) and Bekki (staggered) at the same "
+            "  spdee (colocated) and Bekki et al. 2022 (staggered) at the same "
             "Δr. At this Δr it's\n"
             "  ~5×10⁻⁵, decaying as Δr⁵ (one order higher than the "
             "interior FD because\n"

@@ -27,7 +27,7 @@ docs/ball_staggered.md; this module pins it numerically:
   * free magnetic decay in a perfectly conducting ball at m = 0, 1, 2 in
     the flux (constrained-transport) and the vector-potential
     formulation, against the Bessel conditions, at second order;
-  * constrained-transport MHD on the ball: the compressible Bekki system
+  * constrained-transport MHD on the ball: the compressible solar eigenproblem
     with a magnetic layer compiles with the origin ring pinned and its
     eigenvectors divergence-free.
 
@@ -91,7 +91,7 @@ def roots(f, n=2, lo=0.05, hi=16.0):
 def make_regular_ball_system(m, Ek=0.0, delta=0.0, cs2_0=1.2e4, beta=0.5,
                              gamma=5.0 / 3.0, strain=True, rotation=True,
                              entropy_bc="neumann", pressure="expanded"):
-    """Bekki-form compressible system (the equations and background names
+    """Solar-eigenproblem-form compressible system (the equations and background names
     of ``make_polytrope_system``) on a Cartesian-regular polytrope-like
     ball: Φ = 1 − β r² (even in r), ρ₀ = Φⁿ with n = 1/(γ−1), c_s² = cs2_0 Φ,
     hydrostatic gravity g = 2β(n+1)(cs2_0/γ) r (odd in r), c_p = 1,
@@ -249,7 +249,7 @@ class TestBallOriginStructure:
     @pytest.mark.parametrize("m", [0, 1, 2])
     def test_coriolis_skew_structure(self, Nr, Nt, m):
         """The r–φ Coriolis pair is exactly W-skew; the θ–φ pair of the
-        seed recipe is skew only to O(Δθ) (cosθ on the θ-edge in one
+        solar-eigenproblem recipe is skew only to O(Δθ) (cosθ on the θ-edge in one
         block, on the θ-center in the other), and exactly skew with
         ``coriolis_pairing='adjoint'``."""
         sg = StaggeredGrids.from_grid(ball(Nr, Nt))
@@ -262,7 +262,7 @@ class TestBallOriginStructure:
         wv[:Nt_c] = False
         wv[(Nr_e - 1) * Nt_c:n_vr] = False
         defects = {}
-        for pairing in ("seed", "adjoint"):
+        for pairing in ("solar_eigenproblem", "adjoint"):
             A, _, _ = inertial_pencil(ball(Nr, Nt), m, pairing)
             WA = (sp.diags(W_v) @ A[:n_v, :n_v]).toarray()
             S = WA[np.ix_(wv, wv)]
@@ -272,7 +272,7 @@ class TestBallOriginStructure:
             pr = WA[n_vr + n_vt:, :n_vr][:, kr]
             assert np.abs(rp + pr.conj().T).max() < 1e-14
         assert defects["adjoint"] < 1e-12
-        assert 1e-3 < defects["seed"] < 0.3
+        assert 1e-3 < defects["solar_eigenproblem"] < 0.3
 
     @pytest.mark.parametrize("Nr,Nt", RES_STRUCT)
     @pytest.mark.parametrize("m", [0, 1, 2, 3])
@@ -516,7 +516,7 @@ class TestBallOriginClosure:
 # Zhang et al. 2001 inertial modes
 # ---------------------------------------------------------------------------
 
-def zhang_census(m, Nr, Nt, pairing="seed"):
+def zhang_census(m, Nr, Nt, pairing="solar_eigenproblem"):
     cp = compile_fd2_staggered(zhang_system(), ball(Nr, Nt), m=m,
                                coriolis_pairing=pairing)
     A, B = cp.assemble_evp_matrices()
@@ -584,9 +584,9 @@ class TestZhangBall:
     @pytest.mark.parametrize("m", [1, 2])
     def test_adjoint_pairing_is_undamped(self, m):
         """With the exact W-adjoint θ–φ Coriolis partner the inviscid
-        spectrum is imaginary to rounding; the seed recipe leaves real
+        spectrum is imaginary to rounding; the solar-eigenproblem recipe leaves real
         parts of order 1e-3."""
-        lam_s, _ = zhang_census(m, 16, 32, pairing="seed")
+        lam_s, _ = zhang_census(m, 16, 32, pairing="solar_eigenproblem")
         lam_a, _ = zhang_census(m, 16, 32, pairing="adjoint")
         band_s = lam_s[np.abs(lam_s.imag) < 2.5]
         band_a = lam_a[np.abs(lam_a.imag) < 2.5]
@@ -982,7 +982,7 @@ class TestBallMHDAndRouting:
             assert abs(cp.A_total - base.A_total).max() > 0.0
 
     def test_sign_conventions(self):
-        """The Zhang form 2·Cross(Ω, v) − Grad(p) = λ v and the Bekki form
+        """The Zhang form 2·Cross(Ω, v) − Grad(p) = λ v and the solar-eigenproblem form
         Dt(v) + 2·Cross(Ω, v) + Grad(p) = 0 give the same spectrum (the
         pressure sign is a gauge); reversing the Coriolis sign maps
         ω → −ω."""

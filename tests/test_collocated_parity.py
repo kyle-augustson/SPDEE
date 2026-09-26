@@ -25,7 +25,7 @@ lambda = -(growth rate):
     rates from d(r T)/dr = 0 and the poloidal ones from S = 0
     (tests/test_analytic_evp.py, benchmark 4); the vector potential gives
     the same rates;
-  * the 2 kG dipole shift of the m = 8 sectoral Rossby mode of the Bekki
+  * the 2 kG dipole shift of the m = 8 sectoral Rossby mode of the solar-eigenproblem
     Figure-2 shell in the b and A formulations (tests/test_staggered_mhd.py).
 
 The orders are those of the order-4 stencils at the (12 x 18, 18 x 27)
@@ -633,7 +633,7 @@ def test_free_decay_vector_potential(geometry):
 
 
 def test_dipole_rossby_shift_b_and_A_formulations():
-    """The 2 kG dipole on the m = 8 Bekki Figure-2 shell: the b
+    """The 2 kG dipole on the m = 8 Figure-2 shell of the solar eigenproblem: the b
     formulation (conducting walls, the tangential electric field rows
     eta curl(b) - cross(v, B0) = 0) and the vector potential (the Lorentz
     force cross(curl(curl(A)), B0), Coulomb gauge, tangential A = 0 and

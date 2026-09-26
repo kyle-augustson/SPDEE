@@ -10,7 +10,7 @@ but several mode families admit substantial simplification:
 
 **Formulation: primitive variables**
 
-We use the same primitive-variable formulation as Bekki (and as our Zhang
+We use the same primitive-variable formulation as Bekki et al. (and as our Zhang
 2001 test): the unknowns are the velocity vector v (three spin components
 v⁻, v⁰, v⁺ in the V19 basis) and a scalar pressure p that serves as a
 Lagrange multiplier for the divergence constraint. We do NOT use a
@@ -21,13 +21,13 @@ toroidal-poloidal decomposition. The pressure is gauge-eliminated via
 
 The classical equatorial Rossby modes (n=0) are nearly purely TOROIDAL — the
 radial velocity is ~10⁻³ of the horizontal velocities in the inviscid limit.
-They survive a reduction from Bekki's compressible system (with ρ_1, s_1
+They survive a reduction from the compressible solar eigenproblem (with ρ_1, s_1
 prognostic and continuity ∂_t ρ_1 + ∇·(ρ_0 u) = 0) to a Boussinesq-
 incompressible system: drop ρ_1 and s_1 entirely; use ∇·v=0 instead of
 compressible continuity. This reduces to a Coriolis-only problem.
 
-The reduction is exact in the inviscid limit. With viscosity, Bekki §4
-notes that Rossby modes acquire non-negligible v_r ("modes shifted towards
+The reduction is exact in the inviscid limit. With viscosity, Bekki et al. (2022, §4)
+note that Rossby modes acquire non-negligible v_r ("modes shifted towards
 the base of the convection zone"); at that point the Boussinesq
 approximation introduces a small correction relative to the full anelastic
 treatment. We test in the regime where this correction is small.
@@ -46,15 +46,15 @@ returns three BCs per boundary:
   - v_r = 0 (impermeability)
   - Dot(theta_hat, Dot(strain, r_hat)) = 0 (stress-free in theta)
   - Dot(phi_hat, Dot(strain, r_hat)) = 0 (stress-free in phi)
-Total: 6 BCs on v (3 per boundary × 2 boundaries). This matches Bekki's
-eq. (13) — Bekki has 4 conditions per boundary because he also has an
+Total: 6 BCs on v (3 per boundary × 2 boundaries). This matches eq. (13)
+of Bekki et al. (2022), who have 4 conditions per boundary because they also have an
 entropy equation requiring ∂s_1/∂r = 0 at each boundary, which we don't
 since we dropped s_1.
 
 The dispersion relation in the inviscid, uniform-rotation, adiabatic limit is
 the textbook Saio 1982 result
     ω / Ω₀ = -2 / (m + 1)
-for the sectoral l=m mode. Bekki's Table 2, column 2 (n=0) matches this to
+for the sectoral l=m mode. Table 2, column 2 (n=0) of Bekki et al. (2022) matches this to
 3 decimal places for m=1..16. Our finite-difference solution should reproduce
 both to within a few percent.
 """
@@ -84,7 +84,7 @@ PUBLISHED_TABLE2_N0 = {
 
 
 def _build_rossby_system():
-    """Boussinesq-incompressible Rossby setup matching Bekki's reference case.
+    """Boussinesq-incompressible Rossby setup matching the reference case of Bekki et al. (2022).
 
     Inviscid momentum with Coriolis, divergence-free continuity, impermeable
     radial boundaries. Uses Ω₀ = 1 so eigenvalues come out as ω/Ω₀.
@@ -158,8 +158,8 @@ class TestReferenceRossby:
 
     @pytest.mark.parametrize("m", [1, 2, 3, 5, 8])
     def test_matches_published_table2(self, m):
-        """Our values match Bekki's published values (Table 2 col 2) to
-        within 3%. Bekki's own values agree with -2/(m+1) to ~0.1%, so this
+        """Our values match the published values of Bekki et al. (2022, Table 2 col 2) to
+        within 3%. Their own values agree with -2/(m+1) to ~0.1%, so this
         is essentially the same constraint as the analytical test above.
         """
         sys_ = _build_rossby_system()
@@ -174,13 +174,13 @@ class TestReferenceRossby:
         published_val = PUBLISHED_TABLE2_N0[m]
         rel_err = abs(omega - published_val) / abs(published_val)
         assert rel_err < 0.03, (
-            f"m={m}: spdee={omega:.4f}, bekki={published_val:.4f}, "
+            f"m={m}: spdee={omega:.4f}, published={published_val:.4f}, "
             f"rel_err={rel_err:.2e}"
         )
 
     def test_full_m_range_dispersion(self):
         """Scan m=1..16 and confirm all errors stay below 5%.
-        This is the global structure of Bekki Fig. 4a.
+        This is the global structure of Fig. 4a of Bekki et al. (2022).
         """
         sys_ = _build_rossby_system()
         grid = make_shell_grid(
@@ -210,9 +210,9 @@ class TestDifferentialRotation:
 
     **Scope and caveats**
 
-    Bekki's published Fig. 22a is computed with viscous diffusion
+    The published Fig. 22a is computed with viscous diffusion
     ν = 10¹² cm²/s (Ekman ≈ 7.2e-5). Our tests here use the **inviscid
-    limit** only. We do this deliberately: Bekki's own Fig. 22b shows
+    limit** only. We do this deliberately: their Fig. 22b shows
     that the n=0 sectoral Rossby real-frequencies are nearly
     viscosity-insensitive across ν = 10¹¹ → 10¹², differing by less
     than ~1% in Re(ω). So the inviscid limit is a fair representation
@@ -230,7 +230,7 @@ class TestDifferentialRotation:
       which spdee supports.
     - A robust mode-picker that filters for the n=0 sectoral Rossby
       by projecting surface v_θ onto P_l^m and v_φ onto P_l^{m+1}
-      (Bekki §3.1.1) AND counting radial nodes at the equator.
+      (Bekki et al. 2022, §3.1.1) AND counting radial nodes at the equator.
       My initial implementation of this filter was not robust enough
       across m and resolutions — a follow-up task.
 
@@ -247,7 +247,7 @@ class TestDifferentialRotation:
 
     @staticmethod
     def _build_diffrot(m_val, scale, omega_evaluator):
-        """Bekki's n=0 Rossby setup with position-dependent Ω(r,θ).
+        """The n=0 Rossby setup of Bekki et al. (2022) with position-dependent Ω(r,θ).
         scale: multiplier converting nondimensional Ω from the adapter to
             units of Carrington Ω₀. omega_evaluator: callable taking (R, T)
             and returning Ω (nondimensional).
@@ -333,14 +333,14 @@ class TestDifferentialRotation:
         """At m=3, with realistic Ω(r,θ) (inviscid), the Rossby
         real-frequency lies near -0.52 in units of Ω₀_Carrington.
 
-        Bekki's Fig. 22a viscous (ν=10¹² cm²/s) value at m=3 reads
-        roughly -0.526 from the plot. Since Bekki's Fig. 22b shows
+        The Fig. 22a viscous (ν=10¹² cm²/s) value of Bekki et al. (2022) at m=3 reads
+        roughly -0.526 from the plot. Since their Fig. 22b shows
         ν=10¹¹ and ν=10¹² give essentially the same Re(ω), the
         inviscid limit should also match this value to ~1%.
 
         We verify two things:
         - The frequency lies in [-0.55, -0.50], roughly matching
-          Bekki's plotted value.
+          the plotted value of Bekki et al. (2022).
         - The diffrot frequency is more retrograde than the
           uniform-rotation analytical value -0.5.
         """
@@ -364,10 +364,10 @@ class TestDifferentialRotation:
         # in the inviscid limit.
         most_retrograde = max(retrograde, key=lambda y: y.imag)
         omega = -float(most_retrograde.imag)
-        # Real-frequency band consistent with Bekki Fig 22a read at m=3.
+        # Real-frequency band consistent with Fig. 22a of Bekki et al. (2022) read at m=3.
         assert -0.55 < omega < -0.50, (
             f"m=3 with diff-rot: ω={omega:.4f} should be in [-0.55, -0.50] "
-            f"based on Bekki Fig 22a read"
+            f"based on a reading of Fig. 22a of Bekki et al. (2022)"
         )
         # And, more retrograde than uniform.
         assert omega < omega_uniform, (
@@ -434,12 +434,12 @@ class TestDifferentialRotation:
         most-retrograde inertial mode lies near -2/(m+1) for low m.
 
         This exercises that stress-free BCs are correctly enforced
-        (higher-order system needs more BCs — Bekki §2.3). At low Ek
+        (higher-order system needs more BCs — Bekki et al. 2022, §2.3). At low Ek
         the mode is weakly damped (small Re(λ)) so it's identifiable
         from the spectrum without an elaborate eigenfunction filter.
 
         Note: even at low Ek, stress-free conflicts mildly with the
-        analytical r^m structure (Bekki §3.1.1 explicitly notes this).
+        analytical r^m structure (§3.1.1 of Bekki et al. 2022 explicitly notes this).
         We allow 15% real-frequency tolerance to accommodate the
         finite-Ek perturbation of the mode.
         """
@@ -471,16 +471,16 @@ class TestDifferentialRotation:
 
 
 class TestCompressibleInviscid:
-    """Bekki's full compressible inviscid system, simplified.
+    """The full compressible inviscid solar eigenproblem, simplified.
 
-    This is the first step toward replicating Bekki §3 in its full
+    This is the first step toward replicating §3 of Bekki et al. (2022) in its full
     5-field form. Here we tackle the simplest case:
       - inviscid, no thermal diffusion
       - uniform rotation (Ω = Ω₀, constant)
       - adiabatic (δ = 0)
       - no latitudinal entropy gradient (∂_θ s_0 = 0)
 
-    Bekki eq.(10) under these assumptions reduces to ω s_1 = 0, so
+    Eq. (10) of Bekki et al. (2022) under these assumptions reduces to ω s_1 = 0, so
     s_1 decouples and we don't need it in the state vector for the
     Rossby modes (which have s_1 = 0). We carry:
       - v = (v_r, v_θ, v_φ): velocity perturbation
@@ -503,7 +503,7 @@ class TestCompressibleInviscid:
     PCHIP interpolation; the result agrees with the hydrostatic
     prediction ``-ρ_0 g/c_s²`` to 0.05% in the bulk of the CZ.
 
-    **Why this matters for the full Bekki replication**:
+    **Why this matters for the full solar-eigenproblem replication**:
     - It validates the multi-field EVP layout (3 fields here:
       v, ρ_1, P_aux) for a system that has a Dt term on every
       field except the aux.
@@ -685,7 +685,7 @@ class TestCompressibleInviscid:
 
 
 class TestCompressibleStep2:
-    """Step 2 of the full Bekki replication: add s_1 as a coupled
+    """Step 2 of the full solar-eigenproblem replication: add s_1 as a coupled
     prognostic field, retaining all the Step 1 plumbing.
 
     State: 4 fields (v, ρ_1, P_aux, s_1). The aux equation becomes
@@ -694,7 +694,7 @@ class TestCompressibleStep2:
         Dt(v) + Grad(P_aux) + (|g|/c_p) s_1 r̂ + 2 Cross(Ω, v) = 0
     Continuity is unchanged. The entropy equation, in the adiabatic
     (δ=0), uniform-rotation, no-latitudinal-entropy-gradient,
-    no-thermal-diffusion case (Bekki §3 reference), reduces to
+    no-thermal-diffusion case (the §3 reference case of Bekki et al. 2022), reduces to
         Dt(s_1) = 0
     so s_1 is decoupled. We expect:
       (a) The Rossby eigenvalues are UNCHANGED from Step 1 (s_1 has
@@ -926,7 +926,7 @@ class TestCompressibleStep2:
 
 
 class TestCompressibleStep3:
-    """Step 3 of the full Bekki replication: add differential rotation
+    """Step 3 of the full solar-eigenproblem replication: add differential rotation
     to the Step 2 compressible system.
 
     With Ω(r,θ) varying in (r,θ), every prognostic equation acquires
@@ -940,7 +940,7 @@ class TestCompressibleStep3:
     the uniform 2 Cross(Ω₀·ẑ, v). We build Ω(r,θ)·ẑ as a
     Background.Vector with v_r = Ω·cosθ, v_θ = -Ω·sinθ (both numeric).
 
-    **Tilt term skipped for now.** Bekki's eq.(8) also contains a
+    **Tilt term skipped for now.** Eq. (8) of Bekki et al. (2022) also contains a
     `-i·r·sinθ·(v_r ∂_r Ω + (v_θ/r) ∂_θ Ω)` term coupling v_r,v_θ
     into the v_φ equation. This is a cross-spin-component coupling
     within a vector unknown via a bg gradient that we don't yet
@@ -948,11 +948,11 @@ class TestCompressibleStep3:
     in the bulk CZ this term is sub-leading; we add it as a future
     extension.
 
-    **Sign convention re-check**: Bekki eq.(6-10) write the advection
-    as `m(Ω-Ω₀)·X` (real coefficient, after he's absorbed an `i` from
+    **Sign convention re-check**: Eqs. (6-10) of Bekki et al. (2022) write the advection
+    as `m(Ω-Ω₀)·X` (real coefficient, after they have absorbed an `i` from
     the Fourier decomposition `exp(imφ)`). In spdee's `Dt → λ = -iω`
     convention, `λ X = m(Ω-Ω₀)·X` is wrong — we need to track the `i`
-    carefully. Bekki has `ωX = ... + m(Ω-Ω₀)X` (his eq. 6). Multiply
+    carefully. Bekki et al. (2022) have `ωX = ... + m(Ω-Ω₀)X` (their eq. 6). Multiply
     by `-i` to get spdee form: `Dt(X) - ... - i·m(Ω-Ω₀)X = 0`. So the
     coefficient on `X` on the LHS of `Dt(X) + coef·X + ... = 0` is
     `coef = +i·m·(Ω-Ω₀)`. We build this as a complex-valued
@@ -963,7 +963,7 @@ class TestCompressibleStep3:
          out and Step 3 must give the same spectrum as Step 2.
       2. With realistic Ω(r,θ), the dispersion shifts away from the
          uniform `-2/(m+1)` toward more-retrograde values that match
-         Bekki Fig 22a (most cleanly at m=3 where Bekki ≈ -0.526).
+         Fig. 22a of Bekki et al. (2022) (most cleanly at m=3, where their value is ≈ -0.526).
     """
 
     @pytest.fixture(scope="class")
@@ -1033,7 +1033,7 @@ class TestCompressibleStep3:
             If True, use Ω(r,θ) and add mean-flow advection. If
             False, uniform rotation at Carrington Ω₀=1.
         with_tilt : bool, default False
-            If True, include the tilt term from Bekki eq.(8).
+            If True, include the tilt term from eq. (8) of Bekki et al. (2022).
             Only meaningful when with_diffrot=True.
         use_aux : bool, default False
             If True, use the aux-unknown formulation. If False
@@ -1289,10 +1289,10 @@ class TestCompressibleStep3:
 
     def test_m3_diffrot_real_frequency(self, solar_bg):
         """At m=3 with realistic Ω(r,θ), the Rossby band shifts to
-        more retrograde frequencies in the Carrington frame. Bekki
-        Fig 22a reads ~-0.526. We verify the spectrum contains a
+        more retrograde frequencies in the Carrington frame. Fig. 22a
+        of Bekki et al. (2022) reads ~-0.526. We verify the spectrum contains a
         retrograde mode in [-0.55, -0.50] AND that the most-retrograde
-        mode in the Rossby band lies near Bekki's published value.
+        mode in the Rossby band lies near the published value.
 
         The exact mode is hard to pick precisely because diff-rot
         creates a dense band of critical-layer modes near the Rossby
@@ -1316,14 +1316,14 @@ class TestCompressibleStep3:
         ]
         assert retro, "No retrograde mode in [-0.6, -0.4]"
         # Most-retrograde mode in the band — this is the spdee analog
-        # of Bekki's n=0 sectoral Rossby with diff-rot.
+        # of the n=0 sectoral Rossby mode of Bekki et al. (2022) with diff-rot.
         best = max(retro, key=lambda y: y.imag)
         omega = -float(best.imag)
-        # Bekki's m=3 value is -0.526; we expect within 5%
+        # The published m=3 value is -0.526; we expect within 5%
         published_value = -0.526
         rel_err = abs(omega - published_value) / abs(published_value)
         assert rel_err < 0.05, (
-            f"m=3 diff-rot: ω={omega:.4f}, Bekki≈{published_value:.4f}, "
+            f"m=3 diff-rot: ω={omega:.4f}, published≈{published_value:.4f}, "
             f"rel err={rel_err:.2%}"
         )
         # And: more retrograde than the uniform-rotation analytical.
@@ -1364,8 +1364,8 @@ class TestCompressibleStep3:
                 if 0.5*abs(target) < x.imag < 1.5*abs(target)
             ]
             assert retro_d, f"m={m}: no diff-rot retrograde in band"
-            # Take the MOST RETROGRADE mode (this captures Bekki's
-            # Fig 22a behavior — diff-rot pushes Rossby modes to more
+            # Take the MOST RETROGRADE mode (this captures the
+            # Fig. 22a behavior of Bekki et al. 2022 — diff-rot pushes Rossby modes to more
             # negative frequencies in the Carrington frame).
             best_d = max(retro_d, key=lambda y: y.imag)
             omega_d = -float(best_d.imag)
@@ -1486,9 +1486,9 @@ class TestCompressibleStep3:
         in the bulk CZ. Specifically, we verify:
           (a) the spectrum with tilt is in the same band as without
               (within 10% relative shift), and
-          (b) the shift is in a direction consistent with Bekki's
-              physics (more retrograde for m=3, where Bekki's
-              Fig 22a value is -0.526, slightly more retrograde than
+          (b) the shift is in a direction consistent with the
+              physics of Bekki et al. (2022) (more retrograde for m=3, where their
+              Fig. 22a value is -0.526, slightly more retrograde than
               the no-tilt spdee value).
         """
         m = 3
@@ -1533,13 +1533,13 @@ class TestCompressibleStep4:
         − ν Lap(v) − (ν/3) Grad(Div(v))
     and to the entropy equation
         − κ Lap(s_1).
-    Bekki sets ν = κ (Prandtl number 1) and uses ν/(Ω₀R²) ≡ Ek ≈ 7×10⁻⁵.
+    Bekki et al. (2022) set ν = κ (Prandtl number 1) and use ν/(Ω₀R²) ≡ Ek ≈ 7×10⁻⁵.
 
     BCs change from inviscid impermeability to impenetrable stress-free
-    on v at both radial boundaries (Bekki eq. 13). For entropy the
+    on v at both radial boundaries (eq. 13 of Bekki et al. 2022). For entropy the
     default ``entropy_bc='dirichlet'`` uses ``s_1 = 0`` (back-compat
     with the existing test suite); pass ``entropy_bc='neumann'`` to
-    match Bekki's actual ``∂_r s_1 = 0`` (thermally insulating walls)
+    match the solar eigenproblem's actual ``∂_r s_1 = 0`` (thermally insulating walls)
     via the ``BC_NEUMANN_SCALAR_RADIAL`` walker pattern. For dominant
     Rossby-band modes the two choices give identical eigenvalues to
     roundoff — the mode is toroidal-velocity dominated and has
@@ -1569,7 +1569,7 @@ class TestCompressibleStep4:
     important at production resolutions where a single aux scalar
     costs ``N_r·N_θ`` extra rows/cols.
 
-    **The ``∇ln ρ_0 · T`` term.** Bekki's full viscous force expands to
+    **The ``∇ln ρ_0 · T`` term.** The solar eigenproblem's full viscous force expands to
         (1/ρ_0) ∇·(ρ_0 ν T)  =  ν [∇·T + ∇ln ρ_0 · T]
     where T is the (traceless) strain tensor. The ∇·T piece equals
     Lap(v) + (1/3)Grad(Div(v)) and is handled by ``TASK_LAP_VECTOR``
@@ -1582,7 +1582,7 @@ class TestCompressibleStep4:
         ``Dot(∇ln ρ_0, -(2/3)(∇·v) I) = -(2/3)(∇·v) ∇ln ρ_0`` (using
         Dot(a, c·I) = c·a) — ``TASK_BG_VEC_TIMES_DIV_UNK_VEC``.
 
-    Together these cover the full Bekki §2.3 viscous force with no
+    Together these cover the full viscous force of Bekki et al. (2022, §2.3) with no
     aux state. The term affects mode linewidths but not real
     frequencies.
 
@@ -1591,10 +1591,10 @@ class TestCompressibleStep4:
     thickness ``δ_E = √Ek``. The radial grid must satisfy
     ``δ_E ≥ 5·Δr`` for the spectrum to be resolution-converged. With
     our test grid ``N_r = 24`` (Δr ≈ 0.011 across the [0.71, 0.985]
-    shell), this means ``Ek ≥ 3×10⁻³``. Bekki's Ek=7×10⁻⁵ would
-    require N_r ≥ 165 (Bekki uses 256). All tests here pin the
-    well-resolved regime; production validation against Bekki Fig 22a
-    real frequencies awaits running at N_r ≥ 165.
+    shell), this means ``Ek ≥ 3×10⁻³``. The Ek=7×10⁻⁵ of Bekki et al. (2022) would
+    require N_r ≥ 165 (they use 256). All tests here pin the
+    well-resolved regime; production validation against the Fig. 22a
+    real frequencies of Bekki et al. (2022) awaits running at N_r ≥ 165.
 
     Validation strategy:
       1. The viscous system compiles cleanly with the new operator.
@@ -1657,19 +1657,19 @@ class TestCompressibleStep4:
             with the symmetric piece dispatched via
             ``TASK_DOT_BG_VEC_TENSOR_UNK`` and the trace piece via
             ``TASK_BG_VEC_TIMES_DIV_UNK_VEC`` (using the algebraic
-            identity Dot(a, c·I) = c·a). Bekki §2.3 includes this
+            identity Dot(a, c·I) = c·a). Bekki et al. (2022, §2.3) include this
             term; it affects mode linewidths but not real frequencies.
         with_tilt : bool, default False
             If True, include the tilt term (Step 3-tilt physics).
         entropy_bc : 'dirichlet' or 'neumann', default 'dirichlet'
             Boundary condition on the entropy perturbation s_1 at both
-            radial boundaries. Bekki specifies Neumann (∂_r s_1 = 0)
+            radial boundaries. Bekki et al. (2022) specify Neumann (∂_r s_1 = 0)
             for thermally insulating walls. We support both:
               * 'dirichlet'  →  s_1 = 0  (pins the entropy at the wall)
               * 'neumann'    →  ∂_r s_1 = 0 (no heat flux through wall)
             The default ``dirichlet`` is kept for backward compatibility
             with the existing test suite; pass ``entropy_bc='neumann'``
-            to match Bekki's BC choice exactly. For dominant Rossby
+            to match their BC choice exactly. For dominant Rossby
             modes (toroidal-velocity dominated, n=0 sectoral) the two
             choices give essentially the same real frequencies; they
             differ for entropy-dominated modes.
@@ -1900,7 +1900,7 @@ class TestCompressibleStep4:
         # Entropy with thermal diffusion.
         energy_terms = Dt(s1) + adv_coef * s1
         if Ek > 0:
-            # Bekki sets Pr ≡ ν/κ = 1, so κ = ν, same coefficient.
+            # Bekki et al. (2022) set Pr ≡ ν/κ = 1, so κ = ν, same coefficient.
             energy_terms = energy_terms - sp.S(Ek) * Lap(s1)
 
         eq_mom = Equation(mom_terms, name="momentum")
@@ -1908,7 +1908,7 @@ class TestCompressibleStep4:
         eq_energy = Equation(energy_terms, name="energy")
 
         if Ek > 0:
-            # Stress-free + impenetrable on v (Bekki eq. 13):
+            # Stress-free + impenetrable on v (eq. 13 of Bekki et al. 2022):
             # For 'shell': 3 BCs per radial boundary = 6 total + 2 entropy.
             # For 'ball':  3 BCs at outer boundary only; inner is
             #              handled by origin regularity (no user BC).
@@ -2306,7 +2306,7 @@ class TestCompressibleStep4:
             right resolution criterion.
 
         This is the resolution-scaling characterization to consult
-        when sizing production runs. For Bekki's Ek = 7×10⁻⁵
+        when sizing production runs. For the Ek = 7×10⁻⁵ of Bekki et al. (2022)
         (δ_E ≈ 0.0084) the rule requires N_r ≥ 165; this test
         sandbox-validates the rule on Ek 1-2 decades above that.
         """
@@ -2387,7 +2387,7 @@ class TestCompressibleStep4:
         )
 
     def test_neumann_entropy_bc_matches_dirichlet_for_rossby(self, solar_bg):
-        """Neumann entropy BC (Bekki's actual choice, ∂_r s_1 = 0)
+        """Neumann entropy BC (the actual choice of Bekki et al. 2022, ∂_r s_1 = 0)
         and the spdee-default Dirichlet placeholder (s_1 = 0) produce
         the same eigenvalue for the n=0 sectoral Rossby mode.
 
@@ -2403,7 +2403,7 @@ class TestCompressibleStep4:
         For entropy-dominated modes (g-modes in a stably stratified
         radiative zone, or unstable buoyancy modes) the BC choice
         WOULD matter; this test only validates the Rossby case which
-        is what Bekki Fig 22a tracks.
+        is what Fig. 22a of Bekki et al. (2022) tracks.
 
         Concrete claim: |Δω|, |Δγ| ≤ 1e-10 in the absolute sense at
         N_r=24, Ek=3e-3, m=3 — i.e. essentially machine precision.
@@ -2464,8 +2464,8 @@ class TestCompressibleStep4:
             measured exponent drifts slightly on finite ladders).
         (2) The extrapolated continuum eigenvalue ω_∞ is finite,
             consistent with the highest-resolution datum, and reported
-            to sufficient precision to be compared against Bekki Fig
-            22a (or any other reference) at the level the framework
+            to sufficient precision to be compared against Fig. 22a
+            of Bekki et al. (2022) (or any other reference) at the level the framework
             itself can resolve.
         (3) The fit residual is small relative to the smallest Δω in
             the data — i.e. the Richardson model fits the data well.
@@ -2482,10 +2482,10 @@ class TestCompressibleStep4:
 
         Production note: this test pins the continuum value at
         Ek=3e-3, m=3 because that's sandbox-feasible. The same
-        Richardson pattern applied at Bekki's Ek=7×10⁻⁵, m=1..16 on
+        Richardson pattern applied at the Ek=7×10⁻⁵ of Bekki et al. (2022), m=1..16 on
         production hardware would produce continuum eigenvalues
-        directly comparable to Bekki Fig 22a — independent of the
-        difference between Bekki's staggered grid layout and spdee's
+        directly comparable to Fig. 22a of Bekki et al. (2022) — independent of the
+        difference between their staggered grid layout and spdee's
         colocated one, since both layouts should yield the same
         continuum limit (only the rate-controlled finite-N shift
         differs between layouts).

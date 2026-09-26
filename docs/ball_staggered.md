@@ -145,8 +145,8 @@ with the parity of the divided/multiplied field (`−(vector parity)`).
 | `Cp ∘ G = 0` on the weightful curl grid | < 1e-11 (pole rows are weightless) |
 | `W_v G + (W_p Div)ᴴ = 0` | 3e-17 (adjoint by construction) |
 | Coriolis r–φ pair W-skew | 1e-18 |
-| Coriolis θ–φ pair W-skew, seed recipe | defect 0.1–0.2 of the block (cosθ on the θ-edge vs θ-center); identical on the shell |
-| Coriolis θ–φ pair, `coriolis_pairing='center'` (default; cosθ on the θ-centers in both blocks, partner the exact W-adjoint) | 1e-15; inviscid spectrum imaginary to 1e-14; r-mode error 1.6e-4 at 24×24 vs 3.4e-3 with the seed recipe (real parts up to 3e-3 on 8×16, 1.7e-3 on 12×24, 7.7e-3 on the 8×16 shell) and 6.9e-3 with the edge-cos 'adjoint' pairing |
+| Coriolis θ–φ pair W-skew, solar-eigenproblem recipe | defect 0.1–0.2 of the block (cosθ on the θ-edge vs θ-center); identical on the shell |
+| Coriolis θ–φ pair, `coriolis_pairing='center'` (default; cosθ on the θ-centers in both blocks, partner the exact W-adjoint) | 1e-15; inviscid spectrum imaginary to 1e-14; r-mode error 1.6e-4 at 24×24 vs 3.4e-3 with the solar-eigenproblem recipe (real parts up to 3e-3 on 8×16, 1.7e-3 on 12×24, 7.7e-3 on the 8×16 shell) and 6.9e-3 with the edge-cos 'adjoint' pairing |
 | strain Gram (ρ₀ = e^{−r²}, stress-free), ρ₀W-self-adjoint, NSD | 2e-16, max eigenvalue 5e-16 (m = 0 rigid rotation) |
 | scalar Laplacians, Neumann and Dirichlet, self-adjoint, NSD | 1e-16, max eigenvalue ≤ 0 (m = 0 Neumann constant) |
 | compressible pencil rows empty in A and B | none (was 1 for m = 0, ±1) |
@@ -229,10 +229,10 @@ with the parity of the divided/multiplied field (`−(vector parity)`).
 
 ## 5. Found, not fixed
 
-* The seed Coriolis θ–φ pairing is skew only to O(Δθ) on shell and ball
+* The solar-eigenproblem Coriolis θ–φ pairing is skew only to O(Δθ) on shell and ball
   (real parts of a few 1e-3 in the inviscid band). The exact partner is
   one line (`_coriolis_partner`, opt-in `coriolis_pairing='adjoint'`) but
-  moves the certified shell operator, so the default stays 'seed'.
+  moves the certified shell operator, so the default stays 'solar_eigenproblem'.
 * Midpoint cell volumes (O(1) first-cell inconsistency, §2); the
   first-face row of the scalar Laplacian and of Div keep it (an O(h²)
   error, the cell having volume h³), only the blocks of §2 that
@@ -273,7 +273,7 @@ with the parity of the divided/multiplied field (`−(vector parity)`).
 
 ## 6. Benchmarks (`tests/test_ball_staggered.py`)
 
-Zhang et al. (2001) inertial modes, seed pairing, ω = −Im λ, rel. error
+Zhang et al. (2001) inertial modes, solar-eigenproblem pairing, ω = −Im λ, rel. error
 against the curated targets; all 20 targets at m = 1, 2 are recovered on
 16×32 within 8.4e-3, on 24×48 within 2.4e-3.
 

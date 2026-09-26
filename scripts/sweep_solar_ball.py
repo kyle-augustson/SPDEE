@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""sweep_solar_ball.py — Production-scale sweep of Bekki Step 4 on the
+"""sweep_solar_ball.py — Production-scale sweep of the solar-eigenproblem Step 4 on the
 full ball, model S backgrounds, HMI differential rotation.
 
 Physics:
-    Bekki (2022) §2.3 compressible convective Step 4 with full viscous
+    The compressible convective Step 4 of Bekki et al. (2022, §2.3) with full viscous
     force (including grad(ln ρ₀) · strain correction), thermal
     diffusion (Pr=1), and Neumann entropy BC at the outer surface.
     Ω(r, θ) = HMI fit with uniform_core_blend (rigid Ω_core through
@@ -681,7 +681,7 @@ def main() -> int:
     log_listener.start()
 
     log.info("=" * 78)
-    log.info("Bekki Step 4 ball sweep")
+    log.info("Solar-eigenproblem Step 4 ball sweep")
     log.info("=" * 78)
     log.info(f"output_dir       : {args.output_dir}")
     log.info(f"jobs (parallel m): {args.jobs}")

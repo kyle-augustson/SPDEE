@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Cross-check the collocated and staggered Bekki Figure-2 spectra.
+"""Cross-check the collocated and staggered solar-eigenproblem Figure-2 spectra.
 
 Reads the two .npz files written by polytrope_spectrum.py (one per
 core) and reports side by side:
 
   - the Rossby anchor (both at −2/(m+1));
   - the convective ridge: the fastest-growing clean mode;
-  - the largest-Re unstable mode (Bekki's red-dot selection, ≈ 0.27);
+  - the largest-Re unstable mode (the red-dot selection of Bekki et al. 2022, ≈ 0.27);
   - the p-mode placement (|Re ω| ~ 1e4 acoustic band);
   - an overlay scatter plot (fig2_compare.png).
 
@@ -51,7 +51,7 @@ def report(tag, S):
     # growing modes in the physical inertial band
     g = om[(om.imag > 1e-4) & (np.abs(om.real) < 2.0)]
     fastest = g[np.argmax(g.imag)] if len(g) else None
-    # largest-Re unstable mode (Bekki red-dot criterion); restrict to the
+    # largest-Re unstable mode (red-dot criterion of Bekki et al. 2022); restrict to the
     # convective quadrant Re>0, Im>0 to avoid grabbing a high-Re damped tail
     gq = g[g.real > 0]
     largest_re = gq[np.argmax(gq.real)] if len(gq) else None
@@ -75,7 +75,7 @@ def report(tag, S):
     if largest_re is not None:
         print(f"  LARGEST-Re unstable mode:   "
               f"{largest_re.real:+.4f}{largest_re.imag:+.4f}j   "
-              f"<- Bekki red-dot criterion (his ≈ +0.27)")
+              f"<- red-dot criterion of Bekki et al. 2022 (theirs ≈ +0.27)")
     if pmax > 0:
         print(f"  acoustic p-modes present up to |Re ω| ≈ {pmax:.0f} "
               f"(compressible, ~1e4 expected)")
@@ -109,8 +109,8 @@ def main():
     lc, ls = rc["largest_re"], rs["largest_re"]
     if lc is not None and ls is not None:
         print(f"  Largest-Re unstable: coloc {lc.real:+.3f}   "
-              f"stag {ls.real:+.3f}   (Bekki red dot ≈ +0.27)")
-        print("  -> compare these (converged) to Bekki's 0.27; this is the "
+              f"stag {ls.real:+.3f}   (red dot of Bekki et al. 2022 ≈ +0.27)")
+        print("  -> compare these (converged) to the 0.27 of Bekki et al. 2022; this is the "
               "apples-to-apples red-dot test.")
     print("=====================================================")
 
@@ -127,14 +127,14 @@ def main():
             ax.scatter(band.real, band.imag, s=6, alpha=0.4,
                        color=color, label=lab)
         ax.scatter([0.27], [0.36], s=80, color="red", zorder=5,
-                   label="Bekki red dot")
+                   label="red dot, Bekki et al. 2022")
         ax.axhline(0, color="k", lw=0.5, ls="--")
         ax.axvline(0, color="k", lw=0.5, ls="--")
         ax.set_xlim(-2.5, 2.5)
         ax.set_ylim(-2, 1.2)
         ax.set_xlabel(r"$\Re[\omega]/\Omega_0$")
         ax.set_ylabel(r"$\Im[\omega]/\Omega_0$")
-        ax.set_title(f"Bekki Fig-2 cross-check  m={C['m']} Ek={C['Ek']:.2e}")
+        ax.set_title(f"Solar-eigenproblem Fig-2 cross-check  m={C['m']} Ek={C['Ek']:.2e}")
         ax.legend(loc="lower right")
         fig.savefig(args.out, dpi=130, bbox_inches="tight")
         print(f"\n[render] {args.out}")

@@ -55,7 +55,7 @@ class TestDiscretizationOption:
         assert Discretization.coerce("collocated") is Discretization.COLLOCATED
         assert Discretization.coerce("colocated") is Discretization.COLLOCATED
         assert Discretization.coerce("cgrid") is Discretization.STAGGERED
-        assert Discretization.coerce("bekki") is Discretization.STAGGERED
+        assert Discretization.coerce("solar_eigenproblem") is Discretization.STAGGERED
         assert Discretization.coerce("DEDALUS") is Discretization.DEDALUS
         assert Discretization.coerce(Discretization.SH_FD) is Discretization.SH_FD
 
@@ -731,7 +731,7 @@ class TestStaggeredGradDiv:
 
     def test_grad_div_wall_elimination_consistent_and_selfadjoint(self):
         """The radial-wall defect is CURED by eliminating the wall v_r DOFs
-        (rows AND columns) — Bekki's impenetrability BC. On the reduced
+        (rows AND columns) — the solar eigenproblem's impenetrability BC. On the reduced
         space, grad-div is both consistent to 2nd order at the wall-adjacent
         rows AND self-adjoint / negative-semidefinite (both to machine
         precision)."""
@@ -809,7 +809,7 @@ class TestStaggeredHonestScope:
     the rest, rather than silently dropping physics.
 
     With Layers 1–3 + 2b, the staggered path builds the full hydrodynamic
-    Bekki system: inviscid compressible (momentum + continuity + energy),
+    solar eigenproblem: inviscid compressible (momentum + continuity + energy),
     constant-coefficient viscous (Lamé) + thermal diffusion, the stress-free
     wall closure, and the ρ₀-stratification viscous strain correction. Only
     MHD coupling (induction / magnetic unknown / Curl) is still rejected. See

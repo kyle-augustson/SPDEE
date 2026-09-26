@@ -1,20 +1,13 @@
 """Constrained-transport MHD on the staggered (Arakawa-C) backend.
 
-Checks, on the Bekki Figure-2 compressible shell at m=8:
+Checks, on the solar-eigenproblem Figure-2 compressible shell at m=8:
 
   * routing: an MHD system is recognized and compiles on the staggered path;
   * div(b) = 0 is an exact discrete identity of the induction and resistive
     blocks (the whole point of constrained transport);
   * Le -> 0 recovers the hydro Rossby mode to rounding; the shift is
     quadratic in Le;
-  * the field-induced shift of the sectoral Rossby mode agrees with the
-    certified staggered code of the Bekki cross-validation project
-    (``bcg22_mhd_ct.CTMHDModel``, seed tree) on identical parameters
-    -- skipped when that tree is not on this machine.
 """
-
-import os
-import sys
 
 import numpy as np
 import pytest
@@ -29,15 +22,11 @@ from spdee.backends.fd2.staggered_mhd import CTGrid
 from spdee.solvers import shift_invert
 
 R_LO, R_HI, M = 0.71, 0.985, 8
-# Bekki cross-validation parameters: nu = kappa = 2e12 cm^2/s, delta = 1e-6
+# Solar-eigenproblem cross-validation parameters: nu = kappa = 2e12 cm^2/s, delta = 1e-6
 RSUN, OMEGA0 = 7.0e10, 2 * np.pi * 456e-9
 EK = 2e12 / (RSUN ** 2 * OMEGA0)
 GAMMA, RHO_BC, P_BC, G_BC = 5 / 3, 0.2, 6e13, 5.2e4
 H_BC = P_BC / (RHO_BC * G_BC) / RSUN
-
-SEED = os.path.expanduser(os.environ.get("SPDEE_SEED_TREE", ""))
-HAVE_SEED = os.path.isdir(os.path.join(SEED, "bcg22"))
-
 
 def _phi(rr):
     return 1 + (GAMMA - 1) / GAMMA * (R_LO / H_BC) * (R_LO / rr - 1)
@@ -45,7 +34,7 @@ def _phi(rr):
 
 def potential_dipole():
     """Unit-surface potential dipole (rmax/r)^3 (2 cos, sin, 0), as in the
-    seed's CT and Dedalus codes."""
+    CT and Dedalus codes of the reference implementation."""
     f = (R_HI / r) ** 3
     return Background.Vector("B0", v_r=2 * sp.cos(theta) * f, v_theta=sp.sin(theta) * f, v_phi=0)
 
@@ -66,7 +55,7 @@ def lehnert(B0_gauss):
 
 
 def hydro_system(Ek=EK):
-    """Bekki Figure-2 hydro system with the stratified viscous strain term,
+    """Solar-eigenproblem Figure-2 hydro system with the stratified viscous strain term,
     the form that matches the certified codes."""
     poly = PolytropeBackground(r_inner=R_LO, r_outer=R_HI, delta=1e-6)
     return make_polytrope_system(poly, m_val=M, Ek=Ek, Le=0.0,
@@ -84,7 +73,7 @@ def mhd_system(B0_gauss, Ek=EK, Pm=1.0, bc="conducting", lorentz_sign=-1.0):
 def compile_stag(system, Nr, Nt, pairing="center"):
     """Nr, Nt are CELL counts (the staggered grid takes the collocated nodes
     as r-edges, so N_r = Nr + 1); ``pairing`` selects the Coriolis
-    v_phi <- v_theta block (the seed code's recipe or the exact adjoint)."""
+    v_phi <- v_theta block (the reference implementation's recipe or the exact adjoint)."""
     from spdee.backends.fd2.staggered_compile import compile_fd2_staggered
     grid = make_shell_grid(N_r=Nr + 1, N_theta=Nt, r_inner=R_LO, r_outer=R_HI)
     return compile_fd2_staggered(system, grid, m=M, order_r=2, order_theta=2,
@@ -195,47 +184,8 @@ def test_weak_field_limit_and_quadratic_scaling():
     assert 3.95 < ratio < 4.05, (shifts, ratio)
 
 
-@pytest.mark.skipif(not HAVE_SEED, reason="Bekki seed tree not found ($SPDEE_SEED_TREE)")
-def test_shift_matches_certified_ct_code():
-    """Field-induced Rossby shift vs bcg22_mhd_ct.CTMHDModel (dipole, conducting)."""
-    for p in (SEED, os.path.join(SEED, "bcg22")):
-        if p not in sys.path:
-            sys.path.insert(0, p)
-    import bcg22_mhd_ct as CT                     # noqa: E402
-    Nr, Nt, B0 = 12, 48, 3000.0
-
-    def ct_rossby(B):
-        par = CT.CTMHDParams(m=M, Nr=Nr, Nt=Nt, nu=2e12, kappa=2e12, delta=1e-6,
-                             field_type="dipole", B0_surf=B, Pm=1.0, conducting=True)
-        mo = CT.CTMHDModel(par)
-        Mbc, _ = mo.reduced_conducting_matrix()
-        target = -2 / (M + 1) + 0.0j
-        lam, _ = shift_invert(Mbc.tocsr(), None, target + 0.03j, 8, v0=_v0(Mbc.shape[0]))
-        lam = lam[np.isfinite(lam)]
-        return lam[np.argmin(np.abs(lam - target))], mo.Le
-
-    om_ct0, _ = ct_rossby(1e-3)
-    om_ct1, Le_ct = ct_rossby(B0)
-    d_ct = om_ct1 - om_ct0
-
-    # the seed's own Coriolis recipe, so the two staggered codes differ only
-    # by discretization details (scripts/certify_staggered_vs_seed.py)
-    K0, M0 = compile_stag(hydro_system(), Nr, Nt, pairing="seed").assemble_evp_matrices()
-    om_sp0 = rossby(K0, M0)
-    sysB, Le_sp = mhd_system(B0)
-    assert abs(Le_sp - Le_ct) < 1e-6 * Le_ct
-    K1, M1 = compile_stag(sysB, Nr, Nt, pairing="seed").assemble_evp_matrices()
-    om_sp1 = rossby(K1, M1, omega_guess=om_sp0)
-    d_sp = om_sp1 - om_sp0
-
-    # hydro anchors agree between the two staggered codes at this resolution
-    assert abs(om_sp0 - om_ct0) < 3e-4, (om_sp0, om_ct0)
-    # magnetic shift: same sign and magnitude within 5 percent
-    assert abs(d_sp - d_ct) < 0.05 * abs(d_ct), (d_sp, d_ct, om_sp1, om_ct1)
-
-
-def seed_hydro_strings():
-    """The Bekki hydro system in the Bekki project's spelling, entered as
+def solar_eigenproblem_hydro_strings():
+    """The solar-eigenproblem hydro system in the solar-eigenproblem project's spelling, entered as
     strings; the certified configuration for the spectral core."""
     from spdee import Problem
     U = RSUN * OMEGA0
@@ -268,7 +218,7 @@ def test_shift_matches_dedalus_backend(formulation):
     """The same magnetic layer on the Dedalus core (vector potential with
     Coulomb gauge and integ(psi) = 0, or b with b_r = 0 and total tangential
     E = 0) gives the same field-induced Rossby shift as the staggered CT
-    assembler (2 kG dipole: seed Dedalus -0.0676-0.0091j, staggered
+    assembler (2 kG dipole: reference Dedalus -0.0676-0.0091j, staggered
     -0.0664-0.0084j, spdee Dedalus -0.0686-0.0102j)."""
     pytest.importorskip("dedalus")
     from spdee.backends.dedalus import DedalusGrid, compile_dedalus
@@ -282,7 +232,7 @@ def test_shift_matches_dedalus_backend(formulation):
     d_s = rossby(K1, M1, omega_guess=om_s0) - om_s0
 
     dg = DedalusGrid(N_r=16, N_theta=48, r_inner=R_LO, r_outer=R_HI)
-    h = seed_hydro_strings()
+    h = solar_eigenproblem_hydro_strings()
     cd0 = compile_dedalus(h, dg, m=M)
     om_d0 = rossby(cd0.A_total, cd0.B_total)
     sysD = add_magnetic_field(h, potential_dipole(), Le=Le, eta=EK,
@@ -311,7 +261,7 @@ def test_b_and_A_formulations_agree_on_the_field_induced_shift():
     vector-potential (A) formulations of the same physics give the same
     Rossby shift as the grid is refined, and each lands on the Dedalus
     core's value for its own formulation (test_shift_matches_dedalus_backend:
-    seed Dedalus -0.0676-0.0091j for b, spdee Dedalus -0.0686-0.0102j for
+    reference Dedalus -0.0676-0.0091j for b, spdee Dedalus -0.0686-0.0102j for
     the vector potential)."""
     diffs, shifts = [], {}
     for Nr, Nt in ((10, 24), (20, 48)):

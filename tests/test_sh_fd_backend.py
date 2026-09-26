@@ -1,7 +1,7 @@
 """The sh_fd core (spin-weighted harmonics x radial FD).
 
 The inviscid inertial problem gives the sectoral Rossby mode -2/(m+1); the
-Bekki hydro system reproduces the certified m=8 Rossby mode; the
+solar-eigenproblem hydro system reproduces the certified m=8 Rossby mode; the
 conducting-dipole shift agrees with the other cores; the tensor
 divergence, LapH and tensor backgrounds satisfy exact identities and the
 compressible viscous stress decays at the analytic toroidal rates and the
@@ -52,7 +52,7 @@ def test_inviscid_rossby(m):
     assert abs(om.imag) < 2e-3
 
 
-# Bekki constants (cgs) as in the seed's constants.py
+# Solar-eigenproblem constants (cgs) as in the reference implementation
 RSUN, OMEGA0 = 7.0e10, 2 * np.pi * 456e-9
 GAMMA, RHO_BC, P_BC, G_BC = 5 / 3, 0.2, 6e13, 5.2e4
 R_LO, R_HI = 0.71, 0.985
@@ -89,7 +89,7 @@ def solar_hydro_strings():
 
 def test_solar_rossby_matches_certified():
     """N_r=32/order 4: -0.220586-0.019366j; N_r=48/order 4: -0.220593-0.019341j;
-    N_r=48/order 2: -0.220597-0.019329j; the Bekki project's dense Dedalus
+    N_r=48/order 2: -0.220597-0.019329j; the solar-eigenproblem project's dense Dedalus
     32x144 value is -0.220599-0.019329j."""
     grid = ShFdGrid(N_r=48, ell_max=8 + 24, r_inner=R_LO, r_outer=R_HI, fd_order=4)
     cp = solar_hydro_strings().compile(grid, m=8, backend="sh_fd")

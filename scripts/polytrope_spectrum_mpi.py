@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""MPI shift-invert reconstruction of the Bekki Fig-2b inertial spectrum.
+"""MPI shift-invert reconstruction of the Fig. 2b inertial spectrum of Bekki et al. (2022).
 
 The dense full eigensolve (scipy.linalg.eig on the 5760² system) is slow and not
 easily threaded. Instead we tile the inertial region of the complex ω-plane with
@@ -24,7 +24,7 @@ Run (OMP/OPENBLAS/MKL_NUM_THREADS=2 per rank):
     mpiexec -n <ncores/2> python polytrope_spectrum_mpi.py --out fig2_coloc
 Rank 0 writes fig2_coloc_merged.npz (+ .png).
 
-Defaults = Bekki Fig 2: collocated, m=8, Ek=1.44e-4, δ=1e-6, (16,72), shell
+Defaults = Fig. 2 of Bekki et al. (2022): collocated, m=8, Ek=1.44e-4, δ=1e-6, (16,72), shell
 [0.71,0.985], Neumann entropy, ∇lnρ·T strain ON. Target grid spans
 Re∈[-2.5,2.5]×Im∈[-2.0,1.1] (the Fig-2b axes); default spacing ~0.105 gives
 ~1000 targets, resolving the ~0.25-spaced damping branches.
@@ -44,7 +44,7 @@ _REPO_ROOT = _Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-# Bekki 2022 Fig-2 caption: ν=κ=1e11 cm²/s ⇒ Ek=7.12e-6 (NOT the §2.5 value
+# Fig. 2 caption of Bekki et al. (2022): ν=κ=1e11 cm²/s ⇒ Ek=7.12e-6 (NOT the §2.5 value
 # 2e12 ⇒ 1.44e-4, which over-damps the inertial band ~20×).
 EK_FIG2 = 7.123e-6
 

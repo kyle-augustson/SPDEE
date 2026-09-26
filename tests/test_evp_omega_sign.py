@@ -138,7 +138,7 @@ def test_raw_lambda_sign_consistent_with_decay():
 
 
 def _rossby_system(Ek=None):
-    """Bekki retrograde-Rossby momentum + continuity; optionally viscous."""
+    """Solar-eigenproblem retrograde-Rossby momentum + continuity; optionally viscous."""
     t_sym = sp.symbols("theta", positive=True)
     Omega = Background.Vector(
         "Omega", v_r=sp.cos(t_sym), v_theta=-sp.sin(t_sym), v_phi=sp.S.Zero,

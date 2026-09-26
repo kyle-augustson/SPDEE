@@ -27,7 +27,7 @@ and
     ds₀/dr = -δ / H_p(r),      N² = (g/c_p) ds₀/dr = -|g| δ / H_p(r).
 
 For δ > 0 the entropy decreases outward, which is convectively unstable and
-produces the growing columnar convective modes of Bekki Fig. 2c. δ is a
+produces the growing columnar convective modes of Fig. 2c of Bekki et al. (2022). δ is a
 small constant (default 1e-6); the radial structure of ds₀/dr comes from
 H_p(r). The system builders use the same pair, so the buoyancy × source
 loop of `make_polytrope_system`, `N2` here and the string system agree.
@@ -53,7 +53,7 @@ are applied by the system builders (see `make_polytrope_system`).
 Public interface
 ----------------
 `PolytropeBackground` mirrors the subset of the `SolarBackgrounds`
-attribute interface used by the Bekki system builders:
+attribute interface used by the solar-eigenproblem system builders:
 
     .rho, .pressure, .sound_speed, .temperature, .gravity,
     .cp, .g_vec, .grad_rho, .grad_s0, .N2, .Omega, .Omega_vec

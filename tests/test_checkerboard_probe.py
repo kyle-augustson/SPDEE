@@ -83,9 +83,9 @@ diagnostics are: convergence to the analytic eigenvalue, machine-
 precision Re(λ)=0 for undamped modes, and σ-independence (no clustering
 at the shift target). The C-grid tests use these, not alternation.
 
-# Pole treatment (parity, NOT Bekki's clamp)
+# Pole treatment (parity, NOT the pole clamp of Bekki et al. 2022)
 
-Bekki 2022 (§2.4) uses the SAME 2D staggered layout as
+Bekki et al. (2022, §2.4) use the SAME 2D staggered layout as
 build_primitive_inertial_evp_cgrid (Gilman 1975: v_r, v_θ on cell
 edges; v_φ, ρ₁, s₁ cell-centered), with 2nd-order centered differences.
 But their pole BC is a Dirichlet clamp (v_r=v_θ=v_φ=0, s₁=0 at the pole
@@ -109,9 +109,9 @@ Parity facts (V19 spin basis v_± = (v_θ ∓ i v_φ)/√2, v_0 = v_r):
     (θ=0) where the quadrature weight sinθ=0, so the pole node drops out
     of the weighted inner product and the adjoint divergence
     Div=-W⁻¹GᵀW handles it with NO special pole BC.
-  * CONCRETE correctness win over Bekki: for m=1, v_+ stays FINITE at
+  * CONCRETE correctness win over Bekki et al. (2022): for m=1, v_+ stays FINITE at
     the pole (leading power sin^|m-1|=sin^0=const) while v_r→0 like sinθ.
-    Bekki's "v_r=v_θ=v_φ=0 at pole" clamp wrongly forces v_+→0 for m=1 —
+    Their "v_r=v_θ=v_φ=0 at pole" clamp wrongly forces v_+→0 for m=1 —
     over-constraining the physically important high-latitude m=1 mode.
     Parity conditions get this right.
 
@@ -150,14 +150,14 @@ because of WHERE the layout places each variable:
 So the only variable that reaches the pole is v_θ (on edges), and there
 the sinθ→0 weight is exactly the physically-correct zero-flux factor.
 Each variable sits where its singular factors are benign — which is
-precisely WHY Bekki's layout centers v_φ/p/ρ₁/s₁ and edges v_r/v_θ. The
+precisely WHY the solar eigenproblem's layout centers v_φ/p/ρ₁/s₁ and edges v_r/v_θ. The
 layout is internally consistent.
 
-The production path is therefore: 2D staggered C-grid (Bekki/Gilman
+The production path is therefore: 2D staggered C-grid (Gilman-type
 layout) + adjoint-consistent assembly (Div = norm-adjoint of clean G,
 Coriolis interps as adjoint pairs) + parity-folded staggered θ with the
 sinθ volume norm handling the poles automatically — no Dirichlet clamp,
-m-general, and more correct than Bekki for the m=1 high-latitude mode.
+m-general, and more correct than Bekki et al. (2022) for the m=1 high-latitude mode.
 
 # Physics
 
@@ -1114,8 +1114,8 @@ class TestSpinBasisPoleParity:
 
     Cross-checked three ways in development (Cartesian-smoothness numerics
     on two fields + the analytic sin^|m-s| argument). These signs drive
-    the production parity-aware staggered θ-stencil that replaces Bekki's
-    Dirichlet pole clamp.
+    the production parity-aware staggered θ-stencil that replaces the
+    Dirichlet pole clamp of Bekki et al. (2022).
     """
 
     def test_parity_formula_matches_cartesian_smoothness(self):
@@ -1183,7 +1183,7 @@ class TestSpinBasisPoleParity:
 
     def test_m1_vplus_finite_at_pole(self):
         """For m=1, v_+ stays finite at the pole (leading power sin^0)
-        while v_r vanishes — the case Bekki's all-zero clamp gets wrong."""
+        while v_r vanishes — the case the all-zero clamp of Bekki et al. (2022) gets wrong."""
         def field(x, y, z):
             return (x * z + 0.3 * y**2 + 0.5,
                     y * z - 0.2 * x**2 + 0.1,

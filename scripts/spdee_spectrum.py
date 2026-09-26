@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Solve the Bekki hydro eigenproblem on a spdee core and write the spectrum
+"""Solve the solar-eigenproblem hydro system on a spdee core and write the spectrum
 file (spdee.io), one file per solve.
 
     python scripts/spdee_spectrum.py --core sh_fd --m 8 --nr 48 --lmax 32 --nu 1e11 --k 64 --out runs/

@@ -10,10 +10,10 @@
     Coriolis blocks, an exactly W-adjoint buoyancy / advection pair, no
     empty pencil rows, and the leading eigenvalues near the onset of
     convection against the Dedalus core at second order;
-  * anelastic (Bekki polytrope, Div(rho0 v) = 0): the multiplier weighting
+  * anelastic (solar-eigenproblem polytrope, Div(rho0 v) = 0): the multiplier weighting
     and the Grad / Div adjointness under the rho0-weighted norm;
   * the refusal messages of the unrecognised shapes;
-  * the compressible system: the Bekki hydro strings and the same system
+  * the compressible system: the solar-eigenproblem hydro strings and the same system
     as IR objects give one pencil, the ball's r^n row premultiply and
     origin ring, the tensor placement (Grad then Div is the strain Gram,
     Transpose a permutation, Trace consistent with Div, Dot(r_hat, T)
@@ -291,7 +291,7 @@ def boussinesq_problem(Ra=1e3, Ek=1e-2, Pr=1.0, wall="stress_free", shell=True,
 
 
 def anelastic_problem(Ek=1e-3, delta=1e-6):
-    """The Bekki polytrope with Div(rho0 v) = 0 in place of continuity."""
+    """The solar-eigenproblem polytrope with Div(rho0 v) = 0 in place of continuity."""
     pb = Problem()
     pb.add_unknown("v", "vector")
     pb.add_unknown("S", "scalar")
@@ -694,7 +694,7 @@ class TestRefusals:
 # ---------------------------------------------------------------------------
 
 def solar_named_system(rho_form, Ek, delta, pressure="product"):
-    """The Bekki hydro system with the background names the hand assembler
+    """The solar-eigenproblem hydro system with the background names the hand assembler
     reads, built from the same polytrope expressions as the strings.
     ``rho_form`` 'true' carries rho0 (the viscous Gram weight) and 'unit'
     carries rho0 = 1 with d ln rho0 / dr as the mass-flux stratification
@@ -762,10 +762,10 @@ def block_deviations(A, lay_a, B, lay_b, rename=()):
 
 
 SHELL_CASES = [
-    (12, 48, 8, 2e12, 1e-6, "center"), (12, 48, 8, 2e12, 1e-6, "seed"),
+    (12, 48, 8, 2e12, 1e-6, "center"), (12, 48, 8, 2e12, 1e-6, "solar_eigenproblem"),
     (12, 48, 8, 0.0, 1e-6, "center"), (8, 16, 8, 2e12, 0.0, "center"),
-    (8, 16, 0, 2e12, 1e-6, "center"), (8, 16, 1, 2e12, 1e-6, "seed"),
-    (8, 16, 1, 0.0, 0.0, "center"), (8, 16, 0, 0.0, 1e-6, "seed"),
+    (8, 16, 0, 2e12, 1e-6, "center"), (8, 16, 1, 2e12, 1e-6, "solar_eigenproblem"),
+    (8, 16, 1, 0.0, 0.0, "center"), (8, 16, 0, 0.0, 1e-6, "solar_eigenproblem"),
 ]
 
 
@@ -1435,7 +1435,7 @@ def dipole_field():
 
 def ct_system(Ek=2e-4, bc="conducting", pressure="grouped", formulation="b",
               delta=1e-6, Le=CT_LE):
-    """The Bekki hydro system of ``solar_named_system`` plus the dipole
+    """The solar-eigenproblem hydro system of ``solar_named_system`` plus the dipole
     magnetic layer of ``add_magnetic_field``."""
     from spdee.applications.solar_eigenmodes import add_magnetic_field
     base = solar_named_system("true", Ek, delta, pressure=pressure)

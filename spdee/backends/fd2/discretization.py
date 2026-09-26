@@ -65,7 +65,7 @@ class Discretization(Enum):
                 "cgrid": cls.STAGGERED,
                 "c-grid": cls.STAGGERED,
                 "gilman": cls.STAGGERED,
-                "bekki": cls.STAGGERED,
+                "solar_eigenproblem": cls.STAGGERED,
                 "sh_fd": cls.SH_FD,
                 "sh-fd": cls.SH_FD,
                 "shfd": cls.SH_FD,
