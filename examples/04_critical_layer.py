@@ -268,12 +268,12 @@ def interpolate(cp_from, cp_to, x):
 
 def polish(K, Mm, sigma, x0, label, verbose=True):
     """(c) Jacobi-Davidson (bbjd) from the pair (sigma, x0) to machine precision;
-    without the bbjd C extension the pair is returned unpolished."""
+    without a BBJD build (SPDEE_BBJD_PATH) the pair is returned unpolished."""
     before = residual(K, Mm, sigma, x0)
     if not available()["bbjd"]:
         if verbose:
-            print(f"(c) bbjd polish from {label} skipped: the C extension is not built "
-                  f"(spdee/solvers/build_ext.sh); residual stays {before:.1e}")
+            print(f"(c) bbjd polish from {label} skipped: no BBJD build "
+                  f"(SPDEE_BBJD_PATH); residual stays {before:.1e}")
         return sigma, x0, before, before
     t0 = time.time()
     lam, V = shift_invert(K, Mm, sigma + 0.01, 1, method="bbjd", return_vectors=True,

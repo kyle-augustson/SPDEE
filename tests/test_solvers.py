@@ -83,7 +83,7 @@ def test_arpack_lapack():
     assert np.linalg.norm(P.conj().T @ fac.solve_H(b) - b) < 1e-10 * np.linalg.norm(b)
 
 
-@pytest.mark.skipif(not AVAIL.get("fplus"), reason="FPLUS not built")
+@pytest.mark.skipif(not AVAIL.get("fplus"), reason="no FPLUS build (SPDEE_FPLUS_PATH)")
 @pytest.mark.parametrize("pivot", ["partial", "rook", "full"])
 def test_arpack_fplus(pivot):
     lam, _ = solvers.shift_invert(K, M, SIGMA, KK, factor="fplus",
@@ -91,7 +91,7 @@ def test_arpack_fplus(pivot):
     _check(lam)
 
 
-@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="bbjd not built")
+@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="no BBJD build (SPDEE_BBJD_PATH)")
 @pytest.mark.parametrize("factor", ["scipy", "fplus"])
 def test_bbjd(factor):
     """bbjd on the m=2 pencil: singular M (continuity and wall rows) but no
@@ -108,7 +108,7 @@ def test_bbjd(factor):
         assert r < 1e-7
 
 
-@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="bbjd not built")
+@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="no BBJD build (SPDEE_BBJD_PATH)")
 def test_bbjd_gauge_row():
     """bbjd on the m=0 pencil: singular M and the dense integral gauge row,
     with sigma in a gap of the spectrum (the nearest eigenvalue 0.27 away),
@@ -124,7 +124,7 @@ def test_bbjd_gauge_row():
         assert np.min(np.abs(x - ref)) < 1e-7 * max(abs(x), abs(sigma))
 
 
-@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="bbjd not built")
+@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="no BBJD build (SPDEE_BBJD_PATH)")
 def test_bbjd_start_vector():
     """ARPACK's eigenvector as v0: bbjd accepts the pair at once."""
     ref, V = solvers.shift_invert(K, M, SIGMA, KK, return_vectors=True)

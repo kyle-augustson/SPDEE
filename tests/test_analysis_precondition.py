@@ -74,7 +74,7 @@ def test_deflation_removes_converged_mode():
     assert res[:4].max() < 1e-8
 
 
-@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="bbjd not built")
+@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="no BBJD build (SPDEE_BBJD_PATH)")
 def test_coarse_grid_preconditioner_bbjd_counts():
     """bbjd on the viscous inertial pencil (10 x 20) for the nearest
     eigenvalue: outer iterations with the exact LU, the two-grid
@@ -140,7 +140,7 @@ def test_diagnose_names_the_gauge_row_and_the_band():
     assert "dense constraint row" not in [f.cause for f in d2.findings]
 
 
-@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="bbjd not built")
+@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="no BBJD build (SPDEE_BBJD_PATH)")
 def test_schwarz_two_level_bbjd_counts():
     """The Schwarz smoother (4 theta patches, exact patch factors) with the
     6 x 12 coarse correction on the 10 x 20 viscous pencil: GMRES on the
@@ -190,7 +190,7 @@ def test_schwarz_two_level_bbjd_counts():
     sw.close()
 
 
-@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="bbjd not built")
+@pytest.mark.skipif(not AVAIL.get("bbjd"), reason="no BBJD build (SPDEE_BBJD_PATH)")
 def test_refine_from_coarse_grid():
     """The Rossby mode of the 10 x 20 pencil carried to 20 x 40 by
     ``refine``: the fine eigenvalue is ARPACK's, the interpolated start

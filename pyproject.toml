@@ -44,21 +44,14 @@ gpu-cuda12 = ["cupy-cuda12x>=13.0", "nvmath-python[cu12]>=0.8"]
 # device sparse matvec; no Xgeev, no cuDSS, geev runs on the host; on an
 # integrated part 'auto' stays on the host.
 gpu-rocm = ["cupy-rocm-7-0>=14.0"]
-# Build requirements of the FPLUS and bbjd C extensions
-# (spdee/solvers/build_ext.sh): a C99 compiler and, for bbjd, BLAS/LAPACK
-# headers (scipy's bundled OpenBLAS is linked when found, else the system
-# libblas/liblapack); OpenMP optional.  Pure Python cannot install a compiler:
-# apt install build-essential libopenblas-dev, or conda install c-compiler
-# openblas.
-ext = ["setuptools>=68", "wheel", "numpy>=1.24"]
 # Plotting / production driver scripts (not needed for the core solver or tests).
 viz = ["matplotlib>=3.7"]
 # Distributed resolution sweeps (tools/, scripts/).
 mpi = ["mpi4py>=3.1"]
 # Everything the tree can use on a machine with an NVIDIA GPU (ROCm excluded: the
 # CUDA and ROCm CuPy wheels conflict).
-all = ["spdee[dedalus,gpu-cuda,ext,viz,mpi]"]
-# The test suite (tests/); the GPU, Dedalus and C-extension tests skip when
+all = ["spdee[dedalus,gpu-cuda,viz,mpi]"]
+# The test suite (tests/); the GPU, Dedalus, FPLUS and BBJD tests skip when
 # their tier is absent.
 test = ["pytest>=7"]
 
@@ -74,8 +67,7 @@ exclude = ["docs*", "scripts*", "tools*", "tests*"]
 spdee = ["../data/solar/*.txt", "../data/solar/*.npy"]
 
 [tool.pytest.ini_options]
-# Scope discovery to the curated suite (the C-extension suites under
-# spdee/solvers are run from their own directories).
+# Scope discovery to the curated suite.
 testpaths = ["tests"]
 norecursedirs = ["docs", "scripts", "tools", "data", ".pytest_cache", "*.egg-info"]
 markers = [

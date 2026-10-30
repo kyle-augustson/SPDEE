@@ -13,8 +13,8 @@ None for a standard problem).  Two entry points:
       factor   'scipy'   SuperLU
                'lapack'  dense LU on the host, for pencils whose fill is dense anyway
                'fplus'   FPLUS: int64 LU, selectable pivoting, Ruiz scaling; the
-                         maintained library when SPDEE_FPLUS_PATH names a build
-                         (spdee.solvers.external), else SPDEE's copy
+                         library build that SPDEE_FPLUS_PATH names
+                         (spdee.solvers.external)
                'cudss'   NVIDIA cuDSS through nvmath-python (CUDA only)
                'cupy'    cupyx splu: SuperLU on the host, triangular solves on the
                          device, measured 33x slower than 'scipy'; explicit only
@@ -25,8 +25,8 @@ None for a standard problem).  Two entry points:
     host or cuSOLVER Xgeev on the GPU.  Returns a ``CensusResult``.
 
 Nothing here knows about omega; the caller maps lambda to omega.
-``available()`` reports the optional components present.  The C extensions
-are built by ``build_ext.sh``.  A GPU factor or backend that the installed
+``available()`` reports the optional components present.  FPLUS and BBJD
+are separate builds of their libraries (``spdee.solvers.external``).  A GPU factor or backend that the installed
 stack cannot provide (no device, the ROCm build, no nvmath, or
 ``SPDEE_NO_GPU=1``) degrades to the host path with one
 ``gpu.GPUFallbackWarning`` naming the missing capability; a GPU path that
@@ -95,11 +95,10 @@ def _factor_lapack(P: sp.spmatrix, **kw) -> Factor:
 def _factor_fplus(P: sp.spmatrix, library: str = "auto", pivot_strategy: str = "partial",
                   colamd: bool = True, pin_dense_rows: bool = True, equilibrate=True,
                   verbose: int = 0, check: Optional[bool] = None, check_tol: float = 1e-11, **kw) -> Factor:
-    """FPLUS: the maintained library when ``SPDEE_FPLUS_PATH`` / ``FPLUS_PATH``
-    names a build (``library='auto'``), else SPDEE's copy; see
-    ``spdee.solvers.external``.
+    """FPLUS: the library build that ``SPDEE_FPLUS_PATH`` / ``FPLUS_PATH``
+    names; see ``spdee.solvers.external``.
 
-    The external build takes its own options through ``**kw``: relax_rows
+    It takes its own options through ``**kw``: relax_rows
     and panel (default -1, the automatic rule; the meridional MHD pencils of
     the solar paper used 32 and 512), pivot_rel (default 0: only an exactly
     zero pivot is singular, because shift-invert drivers place the shift on
@@ -107,22 +106,18 @@ def _factor_fplus(P: sp.spmatrix, library: str = "auto", pivot_strategy: str = "
     updates on a device with coherent host memory, e.g. the GH200).  With
     pivot_rel 0 the factorization is gated instead: both solve directions
     on one random vector must have backward error below ``check_tol``
-    (``check`` defaults to on for the external build, off for the copy)."""
+    (``check`` defaults to on)."""
     from spdee.solvers.external import load_fplus
     SparseLU, which, _ = load_fplus(library)
     opts = dict(colamd=colamd, pin_dense_rows=pin_dense_rows, pivot_strategy=pivot_strategy,
                 equilibrate=equilibrate, verbose=verbose)
-    if which == "external":
-        opts.update(relax_rows=-1, panel=-1, pivot_rel=0.0)
-        opts.update(kw)
-    elif kw:
-        raise TypeError(f"SPDEE's FPLUS copy takes no option {sorted(kw)}; set SPDEE_FPLUS_PATH "
-                        f"to a build of the FPLUS library")
-    A = P.tocsc() if which == "external" else P.tocsr()
+    opts.update(relax_rows=-1, panel=-1, pivot_rel=0.0)
+    opts.update(kw)
+    A = P.tocsc()
     lu = SparseLU(A, **opts)
     fac = Factor(lu, "fplus", lambda b: lu.solve(b, trans="N"), lambda b: lu.solve(b, trans="H"))
     fac.library = which
-    if check if check is not None else which == "external":
+    if check is not False:
         rng = np.random.default_rng(0)
         n = P.shape[0]
         b = rng.standard_normal(n) + 1j * rng.standard_normal(n)
@@ -326,21 +321,12 @@ def available() -> Dict[str, Any]:
     a GPU capability is missing is in ``gpu.features()``.
     """
     out: Dict[str, Any] = {"arpack": True, "scipy": True, "lapack": True, "dense_numpy": True}
-    try:
-        from spdee.solvers.fplus import _HAVE_C_EXT
-        out["fplus"], out["fplus_c_ext"] = True, bool(_HAVE_C_EXT)
-    except Exception:  # noqa: BLE001
-        out["fplus"] = out["fplus_c_ext"] = False
-    try:
-        from spdee.solvers.bbjd import HAVE_C_EXT as _have_bbjd
-        out["bbjd"] = bool(_have_bbjd)
-    except Exception:  # noqa: BLE001
-        out["bbjd"] = False
     from spdee.solvers.external import describe
     ext = describe()
     out["fplus_external"] = ext["fplus"]["path"] if ext["fplus"]["ok"] else None
     out["bbjd_external"] = ext["bbjd"]["path"] if ext["bbjd"]["ok"] else None
-    out["bbjd"] = out["bbjd"] or out["bbjd_external"] is not None
+    out["fplus"] = out["fplus_c_ext"] = out["fplus_external"] is not None   # a build loads only with its C extension
+    out["bbjd"] = out["bbjd_external"] is not None
     dev = gpu.device()
     feat = gpu.features()
     out["gpu_vendor"] = None if dev is None else dev.vendor

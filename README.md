@@ -25,16 +25,18 @@ equations entered as strings (`spdee.Problem`):
 
 Solvers (`spdee.solvers`): ARPACK or bbjd shift-invert with SuperLU,
 FPLUS (int64, selectable pivoting), cuDSS or CuPy factorizations; dense
-full-spectrum census on CPU or GPU (cuSOLVER Xgeev). bbjd is vendored
-(JDQZ with the harmonic test space; `spdee/solvers/bbjd/NOTES.md`).
+full-spectrum census on CPU or GPU (cuSOLVER Xgeev). FPLUS and bbjd (JDQZ
+with the harmonic test space) are the separate FPLUS and BBJD libraries,
+built on their own and named by `SPDEE_FPLUS_PATH` / `SPDEE_BBJD_PATH`
+(`spdee.solvers.external`, `docs/requirements.md`).
 
 Tests, from the repository root with `PYTHONPATH=.`:
 `python -m pytest tests/ -q --ignore=tests/test_evp_zhang_2001.py` is the
 fast suite (~15 min with a discrete GPU); `-m "slow or not slow"` adds the
 624 operator-coverage cells and the Zhang staggered classes.  The Dedalus and
 GPU tests skip when the dependency is absent, and
-`SPDEE_NO_GPU=1` runs the whole tree on the CPU.  Build the C extensions
-once with `spdee/solvers/build_ext.sh`.  `tests/test_analytic_evp.py`
+`SPDEE_NO_GPU=1` runs the whole tree on the CPU; the FPLUS and bbjd tests
+run when `SPDEE_FPLUS_PATH` / `SPDEE_BBJD_PATH` name builds.  `tests/test_analytic_evp.py`
 holds the analytic eigenvalue benchmarks of all four cores
 (`docs/analytic_benchmarks.md`); `scripts/operator_coverage.py`
 regenerates `docs/OPERATOR_COVERAGE.md`.
@@ -149,7 +151,6 @@ declared in `pyproject.toml` and described in `docs/requirements.md`:
 | `dedalus` | the spectral core; Dedalus v3 is built from source by `scripts/install_dedalus_env.sh` (MPI, FFTW, HDF5) |
 | `gpu-cuda` / `gpu-cuda12` | CuPy and nvmath-python on an NVIDIA GPU: `factor='cudss'`, `dense(backend='cupy')` with cusolverDnXgeev |
 | `gpu-rocm` | CuPy's ROCm build on an AMD GPU: device dense LU (taken by `auto` on a discrete part; measured on an MI300X, see `docs/requirements.md`), geev on the host, no cuDSS; integrated parts (Radeon 890M) need CuPy built from source and are a correctness path where `auto` stays on the host |
-| `ext` | build requirements of the FPLUS and bbjd C extensions (`spdee/solvers/build_ext.sh`) |
 | `viz`, `mpi`, `test`, `all` | matplotlib, mpi4py, pytest, everything but ROCm |
 
 ```
@@ -173,7 +174,7 @@ capability table.
   whose FFTW-interface symbols shadow the FFTW Dedalus links, and every
   Dedalus transform then fails with "FFTW could not create plans"; SPDEE
   imports pypardiso only with `SPDEE_USE_PARDISO=1`.  An MKL-based numpy
-  also breaks C extensions that call the Fortran `zdotc_` (bbjd goes
+  also breaks C extensions that call the Fortran `zdotc_` (BBJD goes
   through `cblas_zdotc_sub` for that reason).
 - cuDSS returns wrong solves with a success flag on pencils with zero
   diagonal entries unless matching is enabled; the solver layer enables it
@@ -262,7 +263,7 @@ spdee/
       staggered_mhd.py         # constrained-transport blocks (CTGrid)
     sh_fd/                     # spin-weighted SH x radial FD (angular.py, compiler.py)
     dedalus/                   # IR -> Dedalus v3 EVP (compiler.py)
-  solvers/                     # shift_invert / dense; fplus/, bbjd/, gpu_dense.py, gpu_si.py
+  solvers/                     # shift_invert / dense; external.py (FPLUS, BBJD), gpu_dense.py, gpu_si.py
   problem.py                   # string entry of equations (Problem)
   backgrounds/
     solar.py                   # Model-S adapter for solar background problems
@@ -366,6 +367,5 @@ Documented behaviour of the discretizations, not defects:
 
 ## License
 
-GPL-3.0-or-later (see `LICENSE`).  The vendored solver libraries under
-`spdee/solvers/fplus` and `spdee/solvers/bbjd` carry the same license and
-are developed in their own repositories.
+GPL-3.0-or-later (see `LICENSE`).  The FPLUS and BBJD solver libraries
+carry the same license and are developed in their own repositories.

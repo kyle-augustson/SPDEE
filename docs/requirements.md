@@ -12,17 +12,16 @@ adds tiers.  The extras are declared in `pyproject.toml`.
 
 | tier (extra) | packages | adds |
 |---|---|---|
-| minimum (`dependencies`) | `numpy>=1.24`, `scipy>=1.10`, `sympy>=1.12`, Python >= 3.10 | the IR and `spdee.Problem`; the collocated, staggered (Arakawa-C) and sh_fd cores; `shift_invert` with `method='arpack'` and `factor` in `scipy` (SuperLU), `lapack` (dense host LU), `fplus` (pure-Python fallback); `dense(backend='numpy')`; `spdee.analysis` |
+| minimum (`dependencies`) | `numpy>=1.24`, `scipy>=1.10`, `sympy>=1.12`, Python >= 3.10 | the IR and `spdee.Problem`; the collocated, staggered (Arakawa-C) and sh_fd cores; `shift_invert` with `method='arpack'` and `factor` in `scipy` (SuperLU), `lapack` (dense host LU); `dense(backend='numpy')`; `spdee.analysis` |
 | `dedalus` | `dedalus>=3.0.5` (pulls mpi4py, h5py) | the spectral core `spdee.backends.dedalus` (shell and ball) |
 | `gpu-cuda` | `cupy-cuda13x>=14.0`, `nvmath-python[cu13]>=0.8` | `factor='cudss'` (cuDSS); `dense(backend='cupy')` with the LU on the device and cusolverDnXgeev (CUDA >= 12.8) or `cp.linalg.eig`; `managed_memory()`; `factor='cupy'` as an explicit option (cupyx splu factors on the host and solves slower on the device) |
 | `gpu-cuda12` | `cupy-cuda12x>=13.0`, `nvmath-python[cu12]>=0.8` | the same on a CUDA 12 runtime (Xgeev from 12.8) |
 | `gpu-rocm` | `cupy-rocm-7-0>=14.0` (the wheel name carries the ROCm major; integrated RDNA 3.5 parts need a source build, see below) | the device dense LU of `dense(backend='cupy')` (chosen by `auto` on a discrete part), the device sparse matvec, `managed_memory()`, `factor='cupy'` as an explicit option; geev runs on the host; no cuDSS |
-| `ext` | `setuptools`, `wheel`, `numpy` at build time; a C99 compiler; a CBLAS/BLAS/LAPACK to link (`libcblas`, `libblas`, `liblapack` as conda and the distributions name them; `BLAS_LIBS` overrides the FPLUS link line) | the FPLUS C extension (int64 LU with selectable pivoting, `factor='fplus'` at speed) and `method='bbjd'` (Jacobi-Davidson QZ); built in place by `spdee/solvers/build_ext.sh` |
-| external FPLUS / BBJD (no extra) | a build of the FPLUS library (github.com/kyle-augustson/FPLUS: SuiteSparse COLAMD and AMD, OpenMP, a BLAS; `SPARSE_LU_OPENMP=1 SPARSE_LU_BLAS=1`) or of BBJD, named by `SPDEE_FPLUS_PATH` / `SPDEE_BBJD_PATH` (else `FPLUS_PATH` / `BBJD_PATH`): the directory that contains the package | `factor='fplus'` and `method='bbjd'` through the maintained libraries (`spdee.solvers.external`; `library='auto'` takes them when named, `'external'` requires them, `'vendored'` keeps SPDEE's copies); FPLUS's blocked solves, automatic relaxation, `relax_rows` / `panel` / `pivot_rel` / `ordering`, and `gpu=True` (cuBLAS panel updates on a coherent-memory device such as the GH200) |
+| FPLUS / BBJD (no extra) | a build of the FPLUS library (github.com/kyle-augustson/FPLUS: SuiteSparse COLAMD and AMD, OpenMP, a BLAS; `SPARSE_LU_OPENMP=1 SPARSE_LU_BLAS=1`) or of BBJD, named by `SPDEE_FPLUS_PATH` / `SPDEE_BBJD_PATH` (else `FPLUS_PATH` / `BBJD_PATH`): the directory that contains the package | `factor='fplus'` (int64 LU with selectable pivoting) and `method='bbjd'` (Jacobi-Davidson QZ), which SPDEE no longer carries copies of (`spdee.solvers.external`: without a named build they raise); FPLUS's blocked solves, automatic relaxation, `relax_rows` / `panel` / `pivot_rel` / `ordering`, and `gpu=True` (cuBLAS panel updates on a coherent-memory device such as the GH200) |
 | `viz` | `matplotlib>=3.7` | the figure scripts under `scripts/`, `tools/` and `examples/` |
 | `mpi` | `mpi4py>=3.1` | the distributed resolution sweeps in `tools/` and `scripts/` |
-| `test` | `pytest>=7` | `tests/`; the Dedalus, GPU and C-extension tests skip when their tier is absent |
-| `all` | `dedalus`, `gpu-cuda`, `ext`, `viz`, `mpi` | a machine with an NVIDIA GPU.  ROCm is excluded because the CUDA and ROCm CuPy wheels conflict |
+| `test` | `pytest>=7` | `tests/`; the Dedalus, GPU, FPLUS and BBJD tests skip when their tier is absent |
+| `all` | `dedalus`, `gpu-cuda`, `viz`, `mpi` | a machine with an NVIDIA GPU.  ROCm is excluded because the CUDA and ROCm CuPy wheels conflict |
 
 The version floors are conservative and were fixed by reading the API the
 code uses: no numpy API newer than the `Generator` random interface

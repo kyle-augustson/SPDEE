@@ -154,23 +154,18 @@ def report(solve: bool = True) -> Dict[str, Any]:
     from spdee.solvers import gpu
     avail = solvers.available()
     feat = gpu.features()
-    fplus_note = ("C extension" if avail.get("fplus_c_ext")
-                  else "pure-Python fallback (spdee/solvers/build_ext.sh builds the C extension)")
     from spdee.solvers.external import describe as _ext_describe
     ext = _ext_describe()
-    if ext["fplus"]["ok"]:
-        fplus_note = f"FPLUS library at {ext['fplus']['path']} (copy: {fplus_note})"
-    elif ext["fplus"]["path"]:
-        fplus_note += f"; SPDEE_FPLUS_PATH unusable: {ext['fplus']['why']}"
-    bbjd_ok, bbjd_why = _importable("spdee.solvers.bbjd")
+
+    def _lib_note(pkg):
+        e = ext[pkg.lower()]
+        return (f"{pkg} library at {e['path']}" if e["ok"] else
+                f"{pkg} library unusable: {e['why']}" if e["path"] else
+                f"needs a build of the {pkg} library (SPDEE_{pkg}_PATH)")
+    fplus_note = _lib_note("FPLUS")
     rep["methods"] = {
         "arpack": {"ok": True, "note": "scipy ARPACK"},
-        "bbjd": {"ok": bbjd_ok or ext["bbjd"]["ok"],
-                 "note": (f"BBJD library at {ext['bbjd']['path']}" if ext["bbjd"]["ok"] else
-                          "C extension" if bbjd_ok else
-                          f"not built ({bbjd_why}); spdee/solvers/build_ext.sh")
-                 + (f"; SPDEE_BBJD_PATH unusable: {ext['bbjd']['why']}"
-                    if ext["bbjd"]["path"] and not ext["bbjd"]["ok"] else "")},
+        "bbjd": {"ok": ext["bbjd"]["ok"], "note": _lib_note("BBJD")},
     }
     gpu_order = solvers.gpu_factor_order()
     prefer, prefer_why = gpu.prefer_device()

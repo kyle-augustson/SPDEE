@@ -1,4 +1,4 @@
-"""The maintained FPLUS and BBJD libraries through ``spdee.solvers.external``:
+"""The FPLUS and BBJD libraries through ``spdee.solvers.external``:
 selection rules everywhere, and, where SPDEE_FPLUS_PATH / SPDEE_BBJD_PATH
 name a build, the same eigenvalues as the reference ARPACK + SuperLU path.
 """
@@ -28,7 +28,10 @@ def test_external_needs_a_path(monkeypatch):
         external.load_fplus("external")
     with pytest.raises(external.ExternalLibraryError, match="SPDEE_BBJD_PATH"):
         external.load_bbjd("external")
-    assert external.load_fplus("auto")[1] == "vendored"
+    with pytest.raises(external.ExternalLibraryError, match="SPDEE_FPLUS_PATH"):
+        external.load_fplus("auto")
+    with pytest.raises(external.ExternalLibraryError, match="SPDEE_BBJD_PATH"):
+        external.load_bbjd("auto")
 
 
 def test_path_without_package(monkeypatch, tmp_path):
@@ -42,12 +45,11 @@ def test_unknown_library():
         external.load_fplus("nope")
 
 
-def test_vendored_refuses_library_options():
-    if not solvers.available().get("fplus"):
-        pytest.skip("FPLUS copy not importable")
-    P = solvers._shifted(K, M, SIGMA)
-    with pytest.raises(TypeError, match="SPDEE_FPLUS_PATH"):
-        solvers.factorize(P, "fplus", library="vendored", relax_rows=32)
+def test_vendored_removed():
+    """SPDEE carries no copies; library='vendored' says so rather than falling back."""
+    for load in (external.load_fplus, external.load_bbjd):
+        with pytest.raises(ValueError, match="no longer carries"):
+            load("vendored")
 
 
 @pytest.mark.skipif(not HAVE_FPLUS, reason="SPDEE_FPLUS_PATH does not name a loadable FPLUS build")
@@ -75,13 +77,14 @@ def test_fplus_external_settings(relax, panel):
 def test_fplus_auto_takes_external():
     P = solvers._shifted(K, M, SIGMA)
     assert solvers.factorize(P, "fplus").library == "external"
-    assert solvers.factorize(P, "fplus", library="vendored").library == "vendored"
     assert solvers.available()["fplus_external"] == EXT["fplus"]["path"]
 
 
 @pytest.mark.skipif(not HAVE_BBJD, reason="SPDEE_BBJD_PATH does not name a loadable BBJD build")
 @pytest.mark.parametrize("factor", ["scipy", "fplus"])
 def test_bbjd_external(factor):
+    if factor == "fplus" and not HAVE_FPLUS:
+        pytest.skip("SPDEE_FPLUS_PATH does not name a loadable FPLUS build")
     info = {}
     lam, V = solvers.shift_invert(K, M, SIGMA, KK, method="bbjd", factor=factor,
                                   return_vectors=True, maxsub=60, maxiter=400,

@@ -724,7 +724,7 @@ def diagnose(K, M, sigma: complex, lam=None, V=None, W=None, info: Optional[dict
             "dense constraint row",
             f"rows {dense_rows.tolist()} have {nnz_row[dense_rows].tolist()} entries against a "
             f"median of {med:.0f} and no mass (an integral gauge)",
-            "bbjd stalls on such pencils (spdee/solvers/bbjd/NOTES.md): use method='arpack', or "
+            "bbjd stalls on such pencils (NOTES.md of the BBJD library): use method='arpack', or "
             "deflate the gauge direction, or compile at m != 0 where no gauge row is written"))
     data = np.abs(K.data[K.data != 0])
     if Mm is not None and Mm.nnz:

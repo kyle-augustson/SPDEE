@@ -1,23 +1,20 @@
-"""The maintained FPLUS and BBJD libraries, loaded from a build outside the tree.
+"""The FPLUS and BBJD libraries, loaded from a build outside the tree.
 
-SPDEE carries copies of both (``spdee.solvers.fplus``, ``spdee.solvers.bbjd``).
-The maintained releases (github.com/kyle-augustson/FPLUS and .../BBJD) are
-used instead when the environment names a build of them:
+``factor='fplus'`` and ``method='bbjd'`` use the maintained releases
+(github.com/kyle-augustson/FPLUS and .../BBJD), built separately and named by
 
   SPDEE_FPLUS_PATH (else FPLUS_PATH)   the directory that CONTAINS the FPLUS package
   SPDEE_BBJD_PATH  (else BBJD_PATH)    the directory that contains the BBJD package
 
-The FPLUS release is the C library (int64 supernodal partial pivoting,
-blocked multi-right-hand-side solves, automatic relaxation for small
-matrices, ordering cache, the optional cuBLAS update path ``gpu=True`` on a
-device with coherent host memory such as the GH200).  SPDEE's copy predates
-it and has none of those.  The BBJD release and SPDEE's copy are the same
-code; the switch exists so a site build (its own BLAS) can be used.
+SPDEE no longer carries copies of either: its FPLUS copy predated the C
+library (int64 supernodal partial pivoting, blocked multi-right-hand-side
+solves, automatic relaxation for small matrices, ordering cache, the
+optional cuBLAS update path ``gpu=True`` on a device with coherent host
+memory such as the GH200), and its BBJD copy duplicated the release.
 
-``library`` (a factor option for FPLUS, an eigensolver option for bbjd):
-  'auto'      the external build when its variable is set, else the copy
-  'external'  the external build; raises when it is absent or not compiled
-  'vendored'  SPDEE's copy
+``library`` (a factor option for FPLUS, an eigensolver option for bbjd) is
+'auto' or 'external', which are the same: the named build, or an
+``ExternalLibraryError`` when no variable names one.
 
 A named build must have its C extension loaded: an external FPLUS on its
 pure-Python fallback, or one that could not find SuiteSparse's libcolamd
@@ -34,7 +31,7 @@ from typing import Optional, Tuple
 
 __all__ = ["fplus_path", "bbjd_path", "load_fplus", "load_bbjd", "LIBRARIES"]
 
-LIBRARIES = ("auto", "external", "vendored")
+LIBRARIES = ("auto", "external")
 
 _ENV = {"FPLUS": ("SPDEE_FPLUS_PATH", "FPLUS_PATH"), "BBJD": ("SPDEE_BBJD_PATH", "BBJD_PATH")}
 _cache = {}
@@ -104,23 +101,22 @@ def _check_colamd() -> None:
                                "LD_LIBRARY_PATH")
 
 
-def _choose(pkg: str, library: str) -> Optional[str]:
+def _choose(pkg: str, library: str) -> str:
+    if library == "vendored":
+        raise ValueError(f"library='vendored': SPDEE no longer carries a copy of {pkg}; build the release and "
+                         f"set {_ENV[pkg][0]}")
     if library not in LIBRARIES:
         raise ValueError(f"unknown library {library!r}; choose from {LIBRARIES}")
-    if library == "vendored":
-        return None
     p = _path(pkg)
-    if p is None and library == "external":
-        raise ExternalLibraryError(f"library='external' but neither {' nor '.join(_ENV[pkg])} is set")
+    if p is None:
+        raise ExternalLibraryError(f"{pkg}: neither {' nor '.join(_ENV[pkg])} is set (the directory that contains "
+                                   f"a build of the {pkg} package, github.com/kyle-augustson/{pkg})")
     return p
 
 
-def load_fplus(library: str = "auto") -> Tuple[type, str, Optional[str]]:
-    """(SparseLU class, 'external' | 'vendored', path or None)."""
+def load_fplus(library: str = "auto") -> Tuple[type, str, str]:
+    """(SparseLU class, 'external', path)."""
     p = _choose("FPLUS", library)
-    if p is None:
-        from spdee.solvers.fplus import SparseLU
-        return SparseLU, "vendored", None
     mod = _import_from("FPLUS", p)
     impl = sys.modules.get("FPLUS.sparse_lu_full_pivot")
     if impl is None or not getattr(impl, "_HAVE_C_EXT", False):
@@ -131,13 +127,8 @@ def load_fplus(library: str = "auto") -> Tuple[type, str, Optional[str]]:
 
 
 def load_bbjd(library: str = "auto"):
-    """(jdqz function, 'external' | 'vendored', path or None)."""
+    """(jdqz function, 'external', path)."""
     p = _choose("BBJD", library)
-    if p is None:
-        from spdee.solvers.bbjd import jdqz, HAVE_C_EXT
-        if not HAVE_C_EXT:
-            raise ImportError("spdee.solvers.bbjd: the C extension is not built; spdee/solvers/build_ext.sh")
-        return jdqz, "vendored", None
     mod = _import_from("BBJD", p)
     impl = sys.modules.get("BBJD.bbjd")
     if impl is None or getattr(impl, "_bbjd_c", None) is None:
