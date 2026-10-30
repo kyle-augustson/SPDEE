@@ -1,5 +1,7 @@
 # spdee — Spherical Partial Differential Equation Eigensolver
 
+Last updated: 2026-10-30
+
 A modular eigensolver for linear PDEs in spherical geometry, separable in
 the azimuthal coordinate `φ` so that each Fourier mode `m` yields an
 independent generalized eigenvalue problem `L x = λ R x`.
@@ -146,7 +148,7 @@ declared in `pyproject.toml` and described in `docs/requirements.md`:
 |---|---|
 | `dedalus` | the spectral core; Dedalus v3 is built from source by `scripts/install_dedalus_env.sh` (MPI, FFTW, HDF5) |
 | `gpu-cuda` / `gpu-cuda12` | CuPy and nvmath-python on an NVIDIA GPU: `factor='cudss'`, `dense(backend='cupy')` with cusolverDnXgeev |
-| `gpu-rocm` | CuPy's ROCm build on an AMD GPU: device dense LU (taken by `auto` on a discrete part such as MI300), geev on the host, no cuDSS; integrated parts (Radeon 890M) need CuPy built from source and are a correctness path where `auto` stays on the host |
+| `gpu-rocm` | CuPy's ROCm build on an AMD GPU: device dense LU (taken by `auto` on a discrete part; measured on an MI300X, see `docs/requirements.md`), geev on the host, no cuDSS; integrated parts (Radeon 890M) need CuPy built from source and are a correctness path where `auto` stays on the host |
 | `ext` | build requirements of the FPLUS and bbjd C extensions (`spdee/solvers/build_ext.sh`) |
 | `viz`, `mpi`, `test`, `all` | matplotlib, mpi4py, pytest, everything but ROCm |
 

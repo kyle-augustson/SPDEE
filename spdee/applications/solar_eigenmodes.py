@@ -69,6 +69,8 @@ against Ω₀ R ~ 290 m/s, i.e. Le ~ 0.02.
 """
 from __future__ import annotations
 
+import dataclasses
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -1018,7 +1020,7 @@ def add_magnetic_field(system, B0, *, Le, eta, J0=None, inv_rho_ratio=None,
                        b_name: str = "b", bc: str = "conducting",
                        lorentz_sign: float = -1.0, geometry: str = "shell",
                        solenoidal: bool = False, psi_name: str = "psi",
-                       formulation: str = "b"):
+                       formulation: str = "b", mean_flow=None):
     """Return a new EquationSystem = ``system`` + magnetic field ``b``.
 
     The momentum equation (the vector equation of ``system``) gains
@@ -1052,12 +1054,19 @@ def add_magnetic_field(system, B0, *, Le, eta, J0=None, inv_rho_ratio=None,
     Lorentz force and the perfect-conductor walls of Lecoanet et al. (2019,
     eq. 26): tangential A = 0 and psi = 0 (b_r = 0 and tangential E = 0
     follow).
+
+    ``mean_flow`` (a background vector U0, e.g. the ``U0`` of
+    ``solar_hydro_problem`` under differential rotation) adds the EMF of the
+    mean flow acting on the perturbation: ``- Curl(Cross(U0, b))`` in the
+    induction equation (``- Cross(U0, Curl(A))`` in the A form), and
+    ``- Cross(U0, b)`` in the tangential electric field of the conducting
+    walls.
     """
     if formulation == "A":
         return _add_vector_potential(system, B0, Le=Le, eta=eta, J0=J0,
                                      inv_rho_ratio=inv_rho_ratio, A_name=b_name,
                                      psi_name=psi_name, lorentz_sign=lorentz_sign,
-                                     geometry=geometry)
+                                     geometry=geometry, mean_flow=mean_flow)
     if formulation != "b":
         raise ValueError("formulation must be 'b' or 'A'")
     v = next(f for f in system.unknowns.values() if f.kind == "vector")
@@ -1078,10 +1087,12 @@ def add_magnetic_field(system, B0, *, Le, eta, J0=None, inv_rho_ratio=None,
             lhs = eq.lhs + lor_term
             if cur_term is not None:
                 lhs = lhs + cur_term
-            equations.append(Equation(lhs, name=eq.name))
+            equations.append(dataclasses.replace(eq, lhs=lhs))   # keeps the weight: the Lorentz force is weighted with momentum
         else:
             equations.append(eq)
     ind = Dt(b) - Curl(Cross(v_ref, B0)) - sp.S(eta) * Lap(b)
+    if mean_flow is not None:
+        ind = ind + Curl(Cross(FieldRef(b), mean_flow))          # - Curl(U0 x b)
     gauge = list(system.gauge_unknowns)
     if solenoidal:
         psi = Unknown.Scalar(psi_name)
@@ -1100,6 +1111,8 @@ def add_magnetic_field(system, B0, *, Le, eta, J0=None, inv_rho_ratio=None,
             bcs.append(BoundaryCondition(loc, Dot(r_hat, b), name=f"{b_name}_r_{suffix}"))
         if bc == "conducting":
             E = sp.S(eta) * Curl(b) - Cross(v_ref, B0)
+            if mean_flow is not None:
+                E = E + Cross(FieldRef(b), mean_flow)               # - U0 x b
             bcs.append(BoundaryCondition(loc, Dot(theta_hat, E), name=f"{b_name}_Et_{suffix}"))
             bcs.append(BoundaryCondition(loc, Dot(phi_hat, E), name=f"{b_name}_Ep_{suffix}"))
         elif bc == "pinned":
@@ -1112,7 +1125,7 @@ def add_magnetic_field(system, B0, *, Le, eta, J0=None, inv_rho_ratio=None,
 
 def _add_vector_potential(system, B0, *, Le, eta, J0=None, inv_rho_ratio=None,
                           A_name="A", psi_name="psi", lorentz_sign=-1.0,
-                          geometry="shell"):
+                          geometry="shell", mean_flow=None):
     """Vector-potential form of `add_magnetic_field` (``formulation='A'``).
 
     Unknowns A and psi; b = Curl(A) in the Lorentz force; induction
@@ -1139,11 +1152,13 @@ def _add_vector_potential(system, B0, *, Le, eta, J0=None, inv_rho_ratio=None,
             lhs = eq.lhs + lor
             if cur is not None:
                 lhs = lhs + cur
-            equations.append(Equation(lhs, name=eq.name))
+            equations.append(dataclasses.replace(eq, lhs=lhs))   # keeps the weight: the Lorentz force is weighted with momentum
         else:
             equations.append(eq)
-    equations.append(Equation(Dt(A) - Cross(v_ref, B0) - sp.S(eta) * Lap(A) - Grad(psi),
-                              name="induction"))
+    ind = Dt(A) - Cross(v_ref, B0) - sp.S(eta) * Lap(A) - Grad(psi)
+    if mean_flow is not None:
+        ind = ind + Cross(Curl(A), mean_flow)                        # - U0 x curl(A)
+    equations.append(Equation(ind, name="induction"))
     equations.append(Equation(Div(A), name="coulomb_gauge"))
     bcs = list(system.boundary_conditions)
     boundaries = [Boundary.R_OUTER] + ([Boundary.R_INNER] if geometry == "shell" else [])

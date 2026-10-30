@@ -18,6 +18,7 @@ adds tiers.  The extras are declared in `pyproject.toml`.
 | `gpu-cuda12` | `cupy-cuda12x>=13.0`, `nvmath-python[cu12]>=0.8` | the same on a CUDA 12 runtime (Xgeev from 12.8) |
 | `gpu-rocm` | `cupy-rocm-7-0>=14.0` (the wheel name carries the ROCm major; integrated RDNA 3.5 parts need a source build, see below) | the device dense LU of `dense(backend='cupy')` (chosen by `auto` on a discrete part), the device sparse matvec, `managed_memory()`, `factor='cupy'` as an explicit option; geev runs on the host; no cuDSS |
 | `ext` | `setuptools`, `wheel`, `numpy` at build time; a C99 compiler; a CBLAS/BLAS/LAPACK to link (`libcblas`, `libblas`, `liblapack` as conda and the distributions name them; `BLAS_LIBS` overrides the FPLUS link line) | the FPLUS C extension (int64 LU with selectable pivoting, `factor='fplus'` at speed) and `method='bbjd'` (Jacobi-Davidson QZ); built in place by `spdee/solvers/build_ext.sh` |
+| external FPLUS / BBJD (no extra) | a build of the FPLUS library (github.com/kyle-augustson/FPLUS: SuiteSparse COLAMD and AMD, OpenMP, a BLAS; `SPARSE_LU_OPENMP=1 SPARSE_LU_BLAS=1`) or of BBJD, named by `SPDEE_FPLUS_PATH` / `SPDEE_BBJD_PATH` (else `FPLUS_PATH` / `BBJD_PATH`): the directory that contains the package | `factor='fplus'` and `method='bbjd'` through the maintained libraries (`spdee.solvers.external`; `library='auto'` takes them when named, `'external'` requires them, `'vendored'` keeps SPDEE's copies); FPLUS's blocked solves, automatic relaxation, `relax_rows` / `panel` / `pivot_rel` / `ordering`, and `gpu=True` (cuBLAS panel updates on a coherent-memory device such as the GH200) |
 | `viz` | `matplotlib>=3.7` | the figure scripts under `scripts/`, `tools/` and `examples/` |
 | `mpi` | `mpi4py>=3.1` | the distributed resolution sweeps in `tools/` and `scripts/` |
 | `test` | `pytest>=7` | `tests/`; the Dedalus, GPU and C-extension tests skip when their tier is absent |
@@ -224,4 +225,67 @@ on the host regardless and solves 33 times slower on the device, and no device
 nonsymmetric eigensolver exists; the sparse matvec is 2.2 times faster on the
 device above ten thousand unknowns.  The m = 2 Rossby mode agrees to 1e-15
 through every backend and factor path.  The integrated-device numbers are not
-expectations for MI300-class hardware, which is the AMD target and untested.
+expectations for MI300-class hardware; those follow.
+
+## MI300X baseline, measured
+
+One AMD Instinct MI300X (virtual function, 192 GB), ROCm 7.2.4, CuPy 14.2 from
+the `cupy-rocm-7-0` wheel, Python 3.13, numpy 2.3 and scipy 1.16 on OpenBLAS,
+Dedalus 3.0.5 present, 26 shared vCPUs; SPDEE as of 2026-09-20.  The host was busy
+with other work throughout (load 24 to 42 on 26 vCPUs), so the host timings
+below are inflated by two to three times and the device timings are the
+reliable column.
+
+| run | result |
+|---|---|
+| `python -m spdee.check` | minimum tier OK; vendor rocm, class discrete, auto -> device; dense census auto -> cupy with the geev on the host; factors auto -> scipy; cuDSS, Xgeev and CuPy's geev unavailable with the ROCm reasons |
+| requirements, solvers, preconditioner tests, GPU visible | 34 passed, 1 skipped (no cuDSS) |
+| fast suite, CPU only, 4 threads | 1779 passed, 640 skipped, 78 minutes |
+| FPLUS standalone suite | 54 passed |
+| BBJD standalone suite | 23 passed |
+
+Dense LU factor and solve, complex128, Fortran order, all N right-hand sides:
+
+| N | host, contended | device | device factor alone |
+|---|---|---|---|
+| 5000 | 5.6 s | 0.1 s | 0.1 s |
+| 10000 | 41.5 s | 0.4 s | 0.3 s |
+| 20000 | 330 s | 2.0 s | 1.0 s |
+| 30000 | 1070 s | 5.8 s | 2.2 s |
+| 40000 | not run | 9.6 s solve | 4.0 s |
+
+At N = 40000 the factor, solve and one refinement step take 34 s in all and
+peak at 143 GB of device memory.  The census itself is bound by the host
+geev on ROCm (770 s at N = 10000 on the contended host against 0.4 s for the
+device transform), so the device removes the transform and nothing else.
+
+Sparse matvec, complex128 CSR with forty entries per row:
+
+| N | host | device | ratio |
+|---|---|---|---|
+| 10000 | 0.54 ms | 0.035 ms | 15 |
+| 30000 | 3.1 ms | 0.032 ms | 95 |
+| 100000 | 16 ms | 0.049 ms | 340 |
+| 300000 | 70 ms | 0.155 ms | 450 |
+| 1000000 | 340 ms | 0.99 ms | 340 |
+
+Every factor path lands on the same eigenvalue to twelve digits on a pencil of
+32512 unknowns (SuperLU 63 s, FPLUS 94 s, CuPy 96 s, `cudss` falls back to
+SuperLU with one warning, `auto` takes SuperLU).
+
+Accuracy of the device transform.  rocSOLVER's factorization is backward
+stable to within two to four times LAPACK's constant on every matrix tried,
+including a real shifted pencil with a growth factor of 3318, and its backward
+error does not depend on the number of right-hand sides.  Yet a dense census
+of an ill-conditioned spectral pencil (tau rows, condition near 1e10) through
+the device transform disagreed with the host census by 0.35 nHz in the
+determinate band and 13 nHz in the damped band, against 6e-5 nHz between two
+host runs with different pivot sequences.  The block triangular solve inverts
+diagonal blocks, which is normwise but not componentwise backward stable, and
+on that pencil the difference reaches the eigenvalues.  One step of iterative
+refinement of the transform on the device, which `dense()` now does by default
+(`refine=1`; the residual before and after is in the census timings), takes
+the transform residual from 2e-13 to 5e-18 on the SPDEE pencils and brings
+that census into agreement with the host to 6e-5 nHz; a second step changes
+nothing.  The same step improves the CUDA path: on an RTX 5070 Ti the worst
+eigenpair residual of a 4512-unknown census fell from 6e-8 to 4e-10.

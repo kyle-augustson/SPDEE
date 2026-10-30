@@ -29,6 +29,8 @@ left-hand side drops raises ValueError.
 
 from __future__ import annotations
 
+import dataclasses
+
 from typing import Dict, List, Tuple
 
 import sympy as sp
@@ -361,7 +363,7 @@ def augment_equation_system(
             new_equations.append(eq)
         else:
             changed = True
-            new_equations.append(Equation(lhs=new_lhs, name=eq.name))
+            new_equations.append(dataclasses.replace(eq, lhs=new_lhs))
     if not changed and not ctx.new_equations:
         return system
     all_equations = new_equations + ctx.new_equations

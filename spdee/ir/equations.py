@@ -17,9 +17,11 @@ background and unknown fields appear.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, List, Tuple
+from typing import Any, Dict, FrozenSet, List, Tuple
 
-from spdee.ir.fields import _FieldBase, Background
+import sympy as sp
+
+from spdee.ir.fields import _FieldBase, Background, r as _R_SYM
 from spdee.ir.expressions import Expression, FieldRef, _wrap
 
 
@@ -60,9 +62,23 @@ class Equation:
     The equation's kind is the lhs kind: a scalar equation is one row
     block, a vector equation three (one per spin component). Bare
     fields and scalars are promoted to Expressions.
+
+    ``weight`` (optional) is a radial function w(r), a SymPy expression in
+    r, by which a projecting core multiplies the equation before adding its
+    tau terms: the Dedalus core solves w lhs + taus = 0.  Pointwise cores
+    (fd2, sh_fd, collocated) ignore it, since a row scaling by a function of
+    r leaves their eigenvalues unchanged; on a tau core it changes the
+    discrete problem (which residual the taus absorb), as in the reference
+    implementation, whose momentum, continuity and entropy
+    equations are multiplied by r^2 H_rho, H_rho and H_p.  The Dedalus core
+    folds w into each term's background coefficient (w dlnrho as one NCC),
+    so a weight that makes the coefficients polynomial removes their
+    ncc_cutoff truncation.  Rebuild an equation with
+    ``dataclasses.replace(eq, lhs=...)`` to keep it.
     """
     lhs: Expression
     name: str = ""
+    weight: Any = None
 
     def __post_init__(self):
         if not isinstance(self.lhs, Expression):
@@ -74,6 +90,11 @@ class Equation:
                     f"got {type(self.lhs).__name__}"
                 ) from exc
             object.__setattr__(self, "lhs", wrapped)
+        if self.weight is not None:
+            w = sp.sympify(self.weight)
+            if w.free_symbols - {_R_SYM}:
+                raise ValueError(f"Equation weight {w} must be a function of r only")
+            object.__setattr__(self, "weight", w)
         if self.lhs.is_nonlinear:
             raise TypeError(
                 "Equation lhs is nonlinear; spdee only supports linear PDEs"
@@ -88,6 +109,8 @@ class Equation:
         return self.lhs.is_linear
 
     def __repr__(self) -> str:
+        if self.weight is not None:
+            return f"Equation({self.name!r}: ({self.weight}) * ({self.lhs!r}) == 0)"
         if self.name:
             return f"Equation({self.name!r}: {self.lhs!r} == 0)"
         return f"Equation({self.lhs!r} == 0)"

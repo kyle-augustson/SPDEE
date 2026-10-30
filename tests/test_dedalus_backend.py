@@ -164,3 +164,52 @@ def test_shell_helmholtz_decoupled_in_l():
             target.append(brentq(f, ks[i], ks[i + 1]) ** 2)
     target = np.sort(target)[:4]
     assert np.abs(lam - target).max() < 1e-8 * target.max(), (lam, target)
+
+
+def test_equation_weight_shell_helmholtz():
+    """A radial equation weight w(r) multiplies the equation before the taus
+    are added: a different pencil, the same resolved eigenvalues (Dirichlet
+    Helmholtz on a shell, as above); a weight in theta is refused."""
+    from spdee.solvers import dense
+    r_i, r_o = 0.5, 1.0
+    grid = DedalusGrid(N_r=16, N_theta=12, r_inner=r_i, r_outer=r_o)
+    lams, Ks = [], []
+    for weight in (None, "r**2*(2 - r)"):
+        pb = Problem()
+        pb.add_unknown("p", "scalar")
+        eq = pb.add_equation("dt(p) - lap(p) = 0", weight=weight)
+        assert (eq.weight is None) == (weight is None)
+        pb.add_bc("p = 0", at="inner")
+        pb.add_bc("p = 0", at="outer")
+        K, M = pb.compile(grid, m=1, backend="dedalus").assemble_evp_matrices()
+        Ks.append(K)
+        lams.append(np.sort(dense(K, M, sigma=-1.0, backend="numpy").lam.real)[:4])
+    assert abs(Ks[0] - Ks[1]).max() > 1e-3
+    assert np.abs(lams[0] - lams[1]).max() < 1e-8 * lams[0].max(), lams
+    pb = Problem()
+    pb.add_unknown("p", "scalar")
+    with pytest.raises(ValueError):
+        pb.add_equation("dt(p) - lap(p) = 0", weight="r*cos(theta)")
+
+
+def test_equation_weight_folds_into_coefficients():
+    """The weight multiplies each term's coefficient before Dedalus expands
+    it: with w = (1 + r)^2 and the coefficient c = 30 / (1 + r)^2 the
+    weighted coefficients are the quadratic w and the constant 30, exact at
+    an ncc_cutoff of 1e-2, which truncates the unweighted c."""
+    from spdee.solvers import dense
+    grid = DedalusGrid(N_r=24, N_theta=12, r_inner=0.5, r_outer=1.0)
+
+    def lams(weight, cutoff):
+        pb = Problem()
+        pb.add_unknown("p", "scalar")
+        pb.add_equation("dt(p) - lap(p) + 30*(1 + r)**(-2)*p = 0", weight=weight)
+        pb.add_bc("p = 0", at="inner")
+        pb.add_bc("p = 0", at="outer")
+        K, M = pb.compile(grid, m=1, backend="dedalus", ncc_cutoff=cutoff).assemble_evp_matrices()
+        return np.sort(dense(K, M, sigma=-1.0, backend="numpy").lam.real)[:4]
+
+    ref = lams(None, 1e-14)
+    scale = np.abs(ref).max()
+    assert np.abs(lams(None, 1e-2) - ref).max() > 1e-6 * scale
+    assert np.abs(lams("(1 + r)**2", 1e-2) - ref).max() < 1e-9 * scale

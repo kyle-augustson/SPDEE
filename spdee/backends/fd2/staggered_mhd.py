@@ -301,6 +301,39 @@ def ct_induction_blocks(ct: CTGrid, B0, cE, conducting: bool
     return blocks
 
 
+def ct_mean_flow_emf_blocks(ct: CTGrid, U0, cE, conducting: bool
+                            ) -> Dict[Tuple[str, str], sp.spmatrix]:
+    """dt Phi = -curl(circulations of E), E = cE (b x U0) for an azimuthal
+    background flow U0 = U(r, theta) phi_hat acting on the flux unknown
+    itself (the mean-flow EMF of differential rotation, Curl(Cross(b, U0))
+    in the induction equation): on the edges
+
+        E_r (theta-faces) = cE U b_theta,   E_theta (r-faces) = -cE U b_r,   E_phi = 0,
+
+    b = Phi / area, so the circulations are exactly the face fluxes times
+    U (edge length x area cancel) and div b = 0 stays an identity.  E_theta
+    is masked at a conducting wall (b_r = 0 there).  The cross-validation
+    staggered code's _add_dr_emf, with cE = +1 its E = -U x b.  ``A_phys``
+    blocks keyed (flux, flux)."""
+    if _vec_comp(U0, "v_r", ct.RfR, ct.tcR).any() or _vec_comp(U0, "v_theta", ct.rcT, ct.TfT).any():
+        raise NotImplementedError("staggered: Curl(Cross(b, U0)) on the flux unknown needs an azimuthal U0 "
+                                  "(U0_r = U0_theta = 0)")
+    m = ct.m
+    blocks: Dict[Tuple[str, str], sp.spmatrix] = {}
+    mask_rf, _, _ = ct.wall_masks()
+    U_tf = _vec_comp(U0, "v_phi", ct.rcT, ct.TfT)
+    U_rf = _vec_comp(U0, "v_phi", ct.RfR, ct.tcR)
+    Cr_Phith = ct.Lr @ (_dd(cE * U_tf) @ ct.iAth)
+    Cth_Phir = ct.Lth @ (_dd(-cE * U_rf) @ ct.iAr)
+    if conducting:
+        Cth_Phir = mask_rf @ Cth_Phir
+    _add(blocks, "br", "br", 1j * m * Cth_Phir)
+    _add(blocks, "bt", "bt", -(1j * m * Cr_Phith))
+    _add(blocks, "bp", "br", -(ct.dr_rfc @ Cth_Phir))
+    _add(blocks, "bp", "bt", ct.dth_tfc @ Cr_Phith)
+    return blocks
+
+
 def ct_resistive_blocks(ct: CTGrid, eta, conducting: bool
                         ) -> Dict[Tuple[str, str], sp.spmatrix]:
     """dt Phi = -curl(eta j), j = curl b on the edges from the physical b

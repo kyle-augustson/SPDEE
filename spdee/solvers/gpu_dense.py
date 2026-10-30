@@ -51,6 +51,23 @@ __all__ = ["dense_spectrum", "CensusResult", "XgeevUnavailable", "managed_memory
 
 
 # ------------------------------------------------------------------ utilities
+_MANAGED_POOL = None      # the pool managed_memory() installs; CuPy's default pool is then NOT the allocator
+
+
+def free_device_pool():
+    """Return CuPy's cached device blocks to the driver: the managed pool
+    when managed_memory() installed it, and the default pool.  The default
+    pool alone is not enough under managed memory -- it is then not the
+    allocator, and the managed pool kept the previous census' blocks, whose
+    pages HBM oversubscription had pushed to host memory: the next census'
+    arrays were carved from them and its transform solve ran 30x slower
+    (GH200, N 33728: 195 s against 6.4 s in a fresh process)."""
+    import cupy as cp
+    if _MANAGED_POOL is not None:
+        _MANAGED_POOL.free_all_blocks()
+    cp.get_default_memory_pool().free_all_blocks()
+
+
 def managed_memory():
     """Switch CuPy to managed memory (cudaMallocManaged, hipMallocManaged)
     so device arrays can exceed HBM (they spill into host memory). Call
@@ -62,8 +79,10 @@ def managed_memory():
         return False
     try:
         import cupy as cp
+        global _MANAGED_POOL
         pool = cp.cuda.MemoryPool(cp.cuda.malloc_managed)
         cp.cuda.set_allocator(pool.malloc)
+        _MANAGED_POOL = pool
         return True
     except Exception:
         return False
@@ -236,8 +255,16 @@ def _densify(A_csr, cdtype, xp, spx, order="F"):
     return out
 
 
-def _transform_generalized(A, B, sigma, cdtype, xp, spx, timings):
-    """C = (A - sigma B)^{-1} B, dense Fortran-ordered on the backend."""
+def _transform_generalized(A, B, sigma, cdtype, xp, spx, timings, refine=1):
+    """C = (A - sigma B)^{-1} B, dense Fortran-ordered on the backend.
+
+    On the device the block triangular solve (rocBLAS / cuBLAS trsm) inverts
+    diagonal blocks, which is normwise but not componentwise backward stable;
+    ``refine`` steps of iterative refinement, R = B - P C then C += P^{-1} R
+    through the same factorization, bring the residual below the host's
+    substitution solve at the cost of one GEMM and one solve per step.  The
+    normwise residual ||P C - B||_1 / (||P||_1 ||C||_1) before and after is
+    recorded in ``timings`` as ``transform_resid`` and ``transform_resid_refined``."""
     t0 = time.time()
     P = (A - sigma * B).tocsr()
     Pd = _densify(P, cdtype, xp, spx)
@@ -250,8 +277,18 @@ def _transform_generalized(A, B, sigma, cdtype, xp, spx, timings):
         C = sla.lu_solve((lu, piv), Bd, overwrite_b=True, check_finite=False)
     else:
         import cupyx.scipy.linalg as cpla
+        Pk = Pd.copy(order="F") if refine else None
         lu, piv = cpla.lu_factor(Pd, overwrite_a=True, check_finite=False)
-        C = cpla.lu_solve((lu, piv), Bd, overwrite_b=True, check_finite=False)
+        C = cpla.lu_solve((lu, piv), Bd.copy(order="F"), overwrite_b=True, check_finite=False)
+        if refine:
+            nP = float(xp.abs(Pk).sum(axis=0).max())
+            R = Bd - Pk @ C
+            timings["transform_resid"] = float(xp.abs(R).sum(axis=0).max()) / (nP * float(xp.abs(C).sum(axis=0).max()))
+            for _ in range(refine):
+                C += cpla.lu_solve((lu, piv), R, overwrite_b=True, check_finite=False)
+                R = Bd - Pk @ C
+            timings["transform_resid_refined"] = float(xp.abs(R).sum(axis=0).max()) / (nP * float(xp.abs(C).sum(axis=0).max()))
+            del Pk, R
         xp.cuda.get_current_stream().synchronize()
     del lu, Pd, Bd
     timings["transform_lu_solve"] = time.time() - t0
@@ -304,7 +341,7 @@ def _geev(C, want_vectors, backend, timings, warn=True):
                      "running geev on host LAPACK ('cupy+hosteig')")
     Ch = cp.asnumpy(C)
     del C
-    cp.get_default_memory_pool().free_all_blocks()
+    free_device_pool()
     w, VR = sla.eig(Ch, right=True, overwrite_a=True, check_finite=False)
     timings["geev"] = time.time() - t0
     return w, (VR if want_vectors else None), "cupy+hosteig"
@@ -411,7 +448,7 @@ class CensusResult:
 
 def dense_spectrum(A, B=None, sigma=0.0, backend="auto", precision="double",
                  vectors=True, mu_min=None, compute_resid=True,
-                 keep_vectors=False, sigma_retry=1e-3j, transform="auto"):
+                 keep_vectors=False, sigma_retry=1e-3j, transform="auto", refine=1):
     """
     Dense full-spectrum solve of the standard problem (B=None) or the
     generalized pencil A x = lambda B x with (possibly singular) B.
@@ -438,6 +475,9 @@ def dense_spectrum(A, B=None, sigma=0.0, backend="auto", precision="double",
 
     On an exactly singular (A - sigma B) factorization (sigma sitting on an
     eigenvalue), retries once at sigma + sigma_retry before raising.
+
+    refine (device only): steps of iterative refinement of the transform's
+    block solve, default 1; 0 disables it.  See ``_transform_generalized``.
     """
     timings = {}
     t_all = time.time()
@@ -460,6 +500,7 @@ def dense_spectrum(A, B=None, sigma=0.0, backend="auto", precision="double",
     if backend == "cupy":
         import cupy as xp
         import cupyx.scipy.sparse as spx
+        free_device_pool()                    # blocks an earlier census cached
     else:
         xp, spx = np, None
     if compute_resid and not vectors:
@@ -484,7 +525,7 @@ def dense_spectrum(A, B=None, sigma=0.0, backend="auto", precision="double",
             Bmat = sp.identity(N, dtype=cdtype, format="csr")
 
         def _build(sig):
-            return _transform_generalized(A, Bmat, sig, cdtype, xp, spx, timings)
+            return _transform_generalized(A, Bmat, sig, cdtype, xp, spx, timings, refine=refine)
 
         try:
             C = _build(sigma)
@@ -510,8 +551,7 @@ def dense_spectrum(A, B=None, sigma=0.0, backend="auto", precision="double",
         C32 = C.astype(np.complex64)
         del C
         if backend == "cupy":
-            import cupy as _cp
-            _cp.get_default_memory_pool().free_all_blocks()
+            free_device_pool()
         C = C32 if C32.flags.f_contiguous else (
             np.asfortranarray(C32) if isinstance(C32, np.ndarray) else C32)
         timings["downcast"] = time.time() - t0
@@ -557,7 +597,7 @@ def dense_spectrum(A, B=None, sigma=0.0, backend="auto", precision="double",
             import cupy as cp
             # a one-shot VR[:, idx] materializes an N x n_sel device copy on
             # top of VR; chunked slices bound the extra footprint to ~1 GB
-            cp.get_default_memory_pool().free_all_blocks()
+            free_device_pool()
             Vout = np.empty((VR.shape[0], idx.size), dtype=complex)
             step = max(1, int(1e9 // (16 * VR.shape[0])))
             for j0 in range(0, idx.size, step):
@@ -565,6 +605,8 @@ def dense_spectrum(A, B=None, sigma=0.0, backend="auto", precision="double",
                 Vout[:, j0:j0 + len(sel)] = cp.asnumpy(VR[:, sel])
                 del sel
     del VR
+    if backend == "cupy":
+        free_device_pool()
     timings["postprocess"] = time.time() - t0
     timings["total"] = time.time() - t_all
 

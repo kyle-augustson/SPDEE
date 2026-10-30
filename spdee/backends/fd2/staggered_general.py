@@ -91,7 +91,7 @@ from spdee.backends.fd2.staggered_compile import (
     normalize_wall_bc,
 )
 from spdee.backends.fd2.staggered_mhd import (
-    CTGrid, ct_induction_blocks, ct_lorentz_blocks, ct_resistive_blocks,
+    CTGrid, ct_induction_blocks, ct_lorentz_blocks, ct_mean_flow_emf_blocks, ct_resistive_blocks,
 )
 from spdee.ir.constraints import classify, describe_tasks, tensor_terms
 from spdee.ir.equations import (
@@ -676,11 +676,14 @@ def _check_involution_walls(record: dict, walls: dict, by_eq: dict):
                 f"Cross(v, B0)) = 0 (conducting wall)")
         a = l = 0.0
         v_name = None
+        self_emf = False          # Curl(Cross(b, U0)): the mean-flow EMF on the flux itself
         for t in by_eq[u_eq]:
             if t.target != TARGET_A:
                 continue
             c = _constant_coefficient(t)
-            if t.kind == TASK_CURL_CROSS_UNK_BG:
+            if t.kind == TASK_CURL_CROSS_UNK_BG and t.unknown_name == b:
+                self_emf = True
+            elif t.kind == TASK_CURL_CROSS_UNK_BG:
                 a += t.sign * c * (1.0 if t.metadata.get("inner_side") == "right" else -1.0)
                 v_name = t.unknown_name
             elif t.kind == TASK_LAP_VECTOR:
@@ -697,6 +700,10 @@ def _check_involution_walls(record: dict, walls: dict, by_eq: dict):
                     elif term["kind"] == "cross" and term["unknown"] == v_name:
                         c_cross += term["coefficient"] * (
                             1.0 if term["side"] == "right" else -1.0)
+                    elif term["kind"] == "cross" and term["unknown"] == b and self_emf:
+                        # (b x U0)_t = -U0_phi b_r theta_hat for an azimuthal U0: zero on
+                        # the b_r = 0 wall; the masked E_theta circulation carries it
+                        pass
                     else:
                         raise NotImplementedError(
                             f"staggered: the tangential condition on {b!r} at {w!r} "
@@ -1377,13 +1384,22 @@ def _constant(values: Optional[np.ndarray]):
     return None
 
 
-def _is_radial(field) -> bool:
-    """True when the background vector has no theta and phi components."""
-    R = np.linspace(0.4, 0.9, 3)[:, None] + np.zeros((1, 5))
-    T = np.linspace(0.3, 2.8, 5)[None, :] + np.zeros((3, 1))
+def _is_azimuthal(field, ops) -> bool:
+    """True when the background vector has only a phi component on the cell
+    centres and faces of the problem's own grid (a mean zonal flow)."""
+    for name in ("v_r", "v_theta"):
+        for loc in ("CC", "RC", "CE"):
+            if np.abs(ops.evaluate(field.components[name], loc)).max() > 0.0:
+                return False
+    return True
+
+
+def _is_radial(field, ops) -> bool:
+    """True when the background vector has no theta and phi components, as
+    evaluated on the cell centres of the problem's own grid (a tabulated
+    background need not be defined outside the shell)."""
     for name in ("v_theta", "v_phi"):
-        v = np.asarray(field.components[name].evaluate_on_grid(R, T)) + 0.0 * R
-        if np.abs(v).max() > 0.0:
+        if np.abs(ops.evaluate(field.components[name], "CC")).max() > 0.0:
             return False
     return True
 
@@ -1837,8 +1853,8 @@ class _Assembly:
         weight = None
         if c_l is not None and len(tens) == 1 and len(traces) == 1:
             a, b = tensor_terms(tens[0])
-            if a == b and _is_radial(tens[0].source_field) \
-                    and _is_radial(traces[0].source_field):
+            if a == b and _is_radial(tens[0].source_field, self.ops) \
+                    and _is_radial(traces[0].source_field, self.ops):
                 a_fn = self.log_gradient(tens[0], lap.coefficient, lap.sign, a)
                 t_fn = self.log_gradient(traces[0], lap.coefficient, lap.sign, -1.5)
                 if a_fn is not None and t_fn is not None:
@@ -1912,13 +1928,16 @@ class _Assembly:
                 f"mirror ghost of a Robin wall is not a parity of the field, so the "
                 f"reflected stencils of the higher orders do not carry it")
         c_vals = self.coefficient_on(task, row)
+        # Only a radial Dot(B0, Grad(s)) can be the weight's partner; an
+        # advection by a non-radial background (a mean zonal flow) in the same
+        # equation stays its own block and must not break the pairing.
         partners = [t for t in self.tasks_of(task.equation_name)
                     if t.kind == TASK_DOT_BG_VEC_GRAD_SCALAR and t.unknown_name == col
                     and id(t) not in self.consumed
-                    and not _is_zero(self.coefficient_on(t, row))]
+                    and not _is_zero(self.coefficient_on(t, row))
+                    and _is_radial(t.source_field, self.ops)]
         weight = None
-        if _constant(c_vals) is not None and len(partners) == 1 \
-                and _is_radial(partners[0].source_field):
+        if _constant(c_vals) is not None and len(partners) == 1:
             a_fn = self.log_gradient(partners[0], task.coefficient, task.sign, 1.0)
             if a_fn is not None:
                 weight = _log_gradient_weight(self.ops.grids, a_fn, "trapezoid")
@@ -2009,6 +2028,8 @@ class _Assembly:
         the wall-adjacent v otherwise."""
         col = task.unknown_name
         self.require(task, row, col, "face", "face")
+        if col == row and self.is_involution(row) and _is_azimuthal(task.source_field, self.ops):
+            return self.curl_cross_flux_bg(task, row)
         if self.is_involution(row):
             conducting = self.conducting(row, "Curl(Cross(v, B0))")
         else:
@@ -2022,6 +2043,23 @@ class _Assembly:
         if not self.is_involution(row):
             M = self.ops.flux_scaling()[1] @ M
         self.add(TARGET_A, row, col, -M if c is not None else _scaled(-M, task.sign, vals))
+
+    def curl_cross_flux_bg(self, task, row):
+        """Curl(Cross(b, U0)) on the flux unknown's own rows, U0 azimuthal (the
+        mean-flow EMF of differential rotation): the circulations of
+        E = cE (b x U0) on the edges from the fluxes, E_theta masked at a
+        conducting wall, the incidence curl back onto the fluxes."""
+        vals = self.coefficient_on(task, row)
+        c = _constant(vals)
+        if c is None:
+            raise NotImplementedError(
+                f"staggered: Curl(Cross({row}, U0)) with a non-constant coefficient")
+        side = 1.0 if task.metadata.get("inner_side") == "right" else -1.0
+        cE = task.sign * c * side
+        conducting = self.conducting(row, f"Curl(Cross({row}, U0))")
+        M = self._ct(ct_mean_flow_emf_blocks(self.ops.ct(), task.source_field, cE, conducting),
+                     ("br", "bt", "bp"), ("br", "bt", "bp"))
+        self.add(TARGET_A, row, row, -M)
 
     def involution_diffusion(self, task, row):
         """Lap(b) = -Curl Curl b on the constraint manifold, or Curl(Curl(b)):

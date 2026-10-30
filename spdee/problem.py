@@ -204,9 +204,13 @@ class Problem:
             raise KeyError(f"{name!r} is not a symbolic parameter")
         self.params[sym] = value
 
-    def add_equation(self, text: str, name: Optional[str] = None) -> Equation:
+    def add_equation(self, text: str, name: Optional[str] = None, weight=None) -> Equation:
+        """Add ``text = 0``; ``weight`` is an optional radial function (text
+        in r or a SymPy expression) multiplying it on tau cores (`Equation`)."""
+        if isinstance(weight, str):
+            weight = sp.sympify(weight, locals={"r": self.namespace["r"]})
         eq = Equation(parse_expression(text, self.namespace),
-                      name=name or f"eq{len(self.equations) + 1}")
+                      name=name or f"eq{len(self.equations) + 1}", weight=weight)
         self.equations.append(eq)
         self._system = None
         return eq

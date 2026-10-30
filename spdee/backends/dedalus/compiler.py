@@ -49,6 +49,8 @@ Pencil: Dedalus solves ``M dt(X) + L X = 0`` with ``dt -> s``.  Returning
 
 from __future__ import annotations
 
+import dataclasses
+
 import itertools
 import warnings
 from dataclasses import dataclass
@@ -316,7 +318,7 @@ class DedalusCompiledProblem:
         else:
             self._er = self._unit_vector("r")
 
-        eq_lhs = [self._operand(eq.lhs) for eq in system.equations]
+        eq_lhs = [self._weighted(eq) for eq in system.equations]
 
         self.tau_fields: List[Any] = []
         bc_rows = self._boundary_rows()
@@ -385,7 +387,7 @@ class DedalusCompiledProblem:
         for dc in cleaning:
             i = next(i for i, eq in enumerate(equations) if eq.name == dc.evolution)
             lhs = equations[i].lhs + Grad(FieldRef(Unknown.Scalar(dc.multiplier)))
-            equations[i] = Equation(lhs, name=equations[i].name)
+            equations[i] = dataclasses.replace(equations[i], lhs=lhs)
             gauge.append(dc.multiplier)
             self.multipliers[dc.vector] = dc.multiplier
         return EquationSystem(equations, list(system.boundary_conditions), gauge_unknowns=gauge)
@@ -398,6 +400,70 @@ class DedalusCompiledProblem:
         if rank == 1:
             return dist.VectorField(coords, name=name, bases=bases)
         return dist.TensorField((coords, coords), name=name, bases=bases)
+
+    def _weighted(self, eq):
+        """The Dedalus operand of an equation, multiplied by its radial
+        ``weight`` when it has one; the taus are added after.  The weight is
+        folded into the background coefficient of each term (`_fold`), so
+        that w(r) dlnrho(r) dot(er, v) is one NCC of grid values w dlnrho,
+        not w(r) times the NCC product dlnrho dot(er, v): a weight chosen to
+        make the coefficients low-degree polynomials (r^2 H_rho dlnrho =
+        -r^2) then leaves no steep factor for ``ncc_cutoff`` to truncate."""
+        if eq.weight is None:
+            return self._operand(eq.lhs)
+        if self.grid.is_ball:
+            raise NotImplementedError(f"equation {eq.name!r}: equation weights are implemented on the shell only")
+        return self._fold(self._eval_sympy(eq.weight), eq.lhs)
+
+    def _fold(self, w: np.ndarray, e: Expression):
+        """``w * e`` with the grid values ``w`` multiplied into the scalar
+        background coefficients of every term of ``e``: through sums,
+        negations and Dt, along scalar coefficients, and onto the unknown
+        side of a product with a background vector (w g S er as (w g) S er).
+        A dot or cross product with a background stays whole behind its
+        merged scalar ((2 w) cross(ez, v), w dot(U0, grad(v))), as in the
+        reference implementation, as does a term with no background
+        factor."""
+        if isinstance(e, Sum):
+            return self._fold(w, e.a) + self._fold(w, e.b)
+        if isinstance(e, Negation):
+            return -self._fold(w, e.operand)
+        if isinstance(e, AsSymmetric):
+            return self._fold(w, e.operand)
+        if isinstance(e, Dt):
+            return self.s_eig * self._fold(w, e.operand)
+        if isinstance(e, ScalarMultiple):
+            s, op = e.scalar, e.operand
+            if s.is_background and not op.is_background:
+                return self._fold(w * self._bg_values(s), op)
+            if op.is_background and not s.is_background:
+                if op.is_scalar:
+                    return self._fold(w * self._bg_values(op), s)
+                return self._dedalus_product("mul", self._fold(w, s), self._translate(op))
+        return self._dedalus_product("mul", self._merged_ncc(w), self._operand(e))
+
+    def _bg_values(self, e: Expression):
+        """Grid values of a background expression on the shell: a number or
+        an array (components first, then the meridional grid)."""
+        x = self._translate(e)
+        if isinstance(x, (int, float, complex)):
+            return x
+        if not isinstance(x, self.d3.Field):
+            x = x.evaluate()
+        x.change_scales(1)
+        return np.array(x["g"])
+
+    def _merged_ncc(self, w):
+        """The scalar NCC field of grid values ``w``; 0 when they vanish."""
+        data = np.broadcast_to(np.asarray(w, dtype=self.dtype), self._R.shape)
+        if not np.any(data):
+            return 0
+        key = ("__merged", data.tobytes())
+        if key not in self._ncc_cache:
+            fld = self._new_field(0, f"ncc{len(self._ncc_cache)}", bases=self.bm)
+            fld["g"] = data
+            self._ncc_cache[key] = fld
+        return self._ncc_cache[key]
 
     def _tau_term(self, tkind: str, order: int, name: str):
         """A tau field on the sphere and its lifted term: 'scalar' and

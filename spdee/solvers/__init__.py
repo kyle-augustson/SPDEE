@@ -8,10 +8,13 @@ None for a standard problem).  Two entry points:
     ``factor`` the inner factorization of (K - sigma M):
 
       method   'arpack'  scipy ARPACK on OP = (K - sigma M)^-1 M
-               'bbjd'    Jacobi-Davidson QZ with (K - sigma M)^-1 as preconditioner
+               'bbjd'    Jacobi-Davidson QZ with (K - sigma M)^-1 as preconditioner;
+                         the BBJD library when SPDEE_BBJD_PATH names a build
       factor   'scipy'   SuperLU
                'lapack'  dense LU on the host, for pencils whose fill is dense anyway
-               'fplus'   FPLUS: int64 LU, selectable pivoting, Ruiz scaling
+               'fplus'   FPLUS: int64 LU, selectable pivoting, Ruiz scaling; the
+                         maintained library when SPDEE_FPLUS_PATH names a build
+                         (spdee.solvers.external), else SPDEE's copy
                'cudss'   NVIDIA cuDSS through nvmath-python (CUDA only)
                'cupy'    cupyx splu: SuperLU on the host, triangular solves on the
                          device, measured 33x slower than 'scipy'; explicit only
@@ -59,6 +62,7 @@ class Factor:
         self._solve = solve
         self._solve_H = solve_H
         self._close = close
+        self.library = None
 
     def solve(self, b):
         return self._solve(b)
@@ -88,13 +92,50 @@ def _factor_lapack(P: sp.spmatrix, **kw) -> Factor:
                   lambda b: sla.lu_solve(lu, b, trans=2, check_finite=False))
 
 
-def _factor_fplus(P: sp.spmatrix, pivot_strategy: str = "partial", colamd: bool = True,
-                  pin_dense_rows: bool = True, equilibrate: bool = True, verbose: int = 0,
-                  **kw) -> Factor:
-    from spdee.solvers.fplus import SparseLU
-    lu = SparseLU(P.tocsr(), colamd=colamd, pin_dense_rows=pin_dense_rows,
-                  pivot_strategy=pivot_strategy, equilibrate=equilibrate, verbose=verbose)
-    return Factor(lu, "fplus", lambda b: lu.solve(b, trans="N"), lambda b: lu.solve(b, trans="H"))
+def _factor_fplus(P: sp.spmatrix, library: str = "auto", pivot_strategy: str = "partial",
+                  colamd: bool = True, pin_dense_rows: bool = True, equilibrate=True,
+                  verbose: int = 0, check: Optional[bool] = None, check_tol: float = 1e-11, **kw) -> Factor:
+    """FPLUS: the maintained library when ``SPDEE_FPLUS_PATH`` / ``FPLUS_PATH``
+    names a build (``library='auto'``), else SPDEE's copy; see
+    ``spdee.solvers.external``.
+
+    The external build takes its own options through ``**kw``: relax_rows
+    and panel (default -1, the automatic rule; the meridional MHD pencils of
+    the solar paper used 32 and 512), pivot_rel (default 0: only an exactly
+    zero pivot is singular, because shift-invert drivers place the shift on
+    converged eigenvalues), ordering, postorder, and gpu=True (cuBLAS panel
+    updates on a device with coherent host memory, e.g. the GH200).  With
+    pivot_rel 0 the factorization is gated instead: both solve directions
+    on one random vector must have backward error below ``check_tol``
+    (``check`` defaults to on for the external build, off for the copy)."""
+    from spdee.solvers.external import load_fplus
+    SparseLU, which, _ = load_fplus(library)
+    opts = dict(colamd=colamd, pin_dense_rows=pin_dense_rows, pivot_strategy=pivot_strategy,
+                equilibrate=equilibrate, verbose=verbose)
+    if which == "external":
+        opts.update(relax_rows=-1, panel=-1, pivot_rel=0.0)
+        opts.update(kw)
+    elif kw:
+        raise TypeError(f"SPDEE's FPLUS copy takes no option {sorted(kw)}; set SPDEE_FPLUS_PATH "
+                        f"to a build of the FPLUS library")
+    A = P.tocsc() if which == "external" else P.tocsr()
+    lu = SparseLU(A, **opts)
+    fac = Factor(lu, "fplus", lambda b: lu.solve(b, trans="N"), lambda b: lu.solve(b, trans="H"))
+    fac.library = which
+    if check if check is not None else which == "external":
+        rng = np.random.default_rng(0)
+        n = P.shape[0]
+        b = rng.standard_normal(n) + 1j * rng.standard_normal(n)
+        nP = spla.norm(A, np.inf)
+        for name, solve, op in (("forward", fac.solve, A), ("conjugate-transposed", fac.solve_H,
+                                                             A.conj().T)):
+            x = solve(b)
+            be = np.linalg.norm(op @ x - b, np.inf) / (nP * np.linalg.norm(x, np.inf)
+                                                       + np.linalg.norm(b, np.inf))
+            if not np.isfinite(be) or be > check_tol:
+                raise RuntimeError(f"FPLUS ({which}) {name} solve failed the backward-error gate "
+                                   f"({be:.2e} > {check_tol:.0e})")
+    return fac
 
 
 def _factor_gpu(P: sp.spmatrix, backend: str, check: bool = True, check_tol: float = 1e-8,
@@ -181,7 +222,10 @@ def _arpack(K, M, sigma, k, fac: Factor, return_vectors, tol, maxiter, v0, defla
 
 def _bbjd(K, M, sigma, k, fac: Optional[Factor], return_vectors, tol, maxiter, v0,
           preconditioner=None, deflation=None, info=None, **kw):
-    from spdee.solvers.bbjd import jdqz
+    from spdee.solvers.external import load_bbjd
+    jdqz, which, _ = load_bbjd(kw.pop("library", "auto"))
+    if info is not None:
+        info["library"] = which
 
     prec_solve = fac.solve if preconditioner is None else (
         preconditioner.solve if hasattr(preconditioner, "solve") else preconditioner)
@@ -212,10 +256,11 @@ def shift_invert(K, M, sigma: complex, k: int, method: str = "arpack", factor: s
     """The k eigenvalues of ``K x = lambda M x`` nearest sigma.
 
     ``tol=0`` is machine precision for ARPACK; bbjd uses 1e-10 then.
-    ``factor_options`` go to the factorization (FPLUS: pivot_strategy, colamd,
-    pin_dense_rows, equilibrate); ``method_options`` go to the eigensolver
-    (bbjd: maxsub, minsub, inner_maxiter, inner_tol, verbose; ``v0`` starts
-    both solvers).
+    ``factor_options`` go to the factorization (FPLUS: library, pivot_strategy,
+    colamd, pin_dense_rows, equilibrate, and with the external library
+    relax_rows, panel, pivot_rel, ordering, gpu; see ``_factor_fplus``);
+    ``method_options`` go to the eigensolver (bbjd: library, maxsub, minsub,
+    inner_maxiter, inner_tol, verbose; ``v0`` starts both solvers).
 
     ``preconditioner`` (bbjd only): an object with ``solve(b)`` approximating
     (K - sigma M)^-1 for the correction equation, in place of the exact
@@ -273,7 +318,8 @@ def _importable(name: str) -> bool:
 def available() -> Dict[str, Any]:
     """Which optional solver components work in this installation.
 
-    Host keys are booleans; ``gpu_vendor`` is "cuda", "rocm" or None and
+    Host keys are booleans except ``fplus_external`` / ``bbjd_external``,
+    the path of a loadable external build or None; ``gpu_vendor`` is "cuda", "rocm" or None and
     ``gpu_device`` the device name or None.  ``cupy`` means a CuPy build
     with a visible device (any vendor), ``cudss`` that cuDSS can factor,
     ``dense_cupy`` that the dense census can run on the device.  The reason
@@ -290,6 +336,11 @@ def available() -> Dict[str, Any]:
         out["bbjd"] = bool(_have_bbjd)
     except Exception:  # noqa: BLE001
         out["bbjd"] = False
+    from spdee.solvers.external import describe
+    ext = describe()
+    out["fplus_external"] = ext["fplus"]["path"] if ext["fplus"]["ok"] else None
+    out["bbjd_external"] = ext["bbjd"]["path"] if ext["bbjd"]["ok"] else None
+    out["bbjd"] = out["bbjd"] or out["bbjd_external"] is not None
     dev = gpu.device()
     feat = gpu.features()
     out["gpu_vendor"] = None if dev is None else dev.vendor
