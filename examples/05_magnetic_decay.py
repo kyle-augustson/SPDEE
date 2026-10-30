@@ -190,9 +190,15 @@ def compile_on(pb, core, m=M):
 
 
 def census(cp, sigma):
+    """Finite eigenpairs whose relative residual is below 100 times the
+    pencil's median (and below 1e-8 at least): the Dedalus 'b' pencil is
+    ill-conditioned, with a median near 1e-9, and the device transform puts
+    its slowest decay mode at 1.6e-8, so a fixed 1e-8 dropped it on a GPU."""
     K, M_ = cp.assemble_evp_matrices()
     out = dense(K, M_, sigma=sigma, backend="auto", vectors=True, keep_vectors=True)
-    keep = np.isfinite(out.lam) & (out.resid < 1e-8)
+    fin = np.isfinite(out.lam)
+    cut = max(1e-8, 100.0 * float(np.median(out.resid[fin])))
+    keep = fin & (out.resid < cut)
     return out.lam[keep], out.V[:, keep]
 
 
