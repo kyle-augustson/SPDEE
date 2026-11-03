@@ -13,7 +13,23 @@ staggered layout:
     Lagrange stencil of any even order);
   * divergence = norm-adjoint of the gradient, Div = -W_p⁻¹ Gᵀ W_v, under
     the r² sinθ volume norm, so grad/div is discretely skew and the
-    inviscid spectrum is undamped;
+    inviscid spectrum is undamped for systems whose energy is that plain
+    norm (e.g. the incompressible Poincaré problem).  A stratified
+    compressible system written in primitive variables, e.g.
+    dt(v) + grad(Cs2*rhat) + 2*cross(ez, v), dt(rhat) + div(v) + dlnrho*v_r,
+    is NOT skew on the C-grid: its energy carries rho0 and rho0*Cs2, the
+    dlnrho*v_r term interpolates v_r from r-edges to centers, and the
+    v_r-v_phi Coriolis pair is adjoint only in the unweighted norm, so an
+    inviscid pencil gets conjugate pairs (|gamma| ~ 4 nHz on the solar
+    polytrope at m = 8, 24 x 96).  Writing (1/rho0) div(rho0 v) alone does
+    not fix it.  Use the symmetrized unknowns w = sqrt(rho0) v and
+    psi = sqrt(rho0 Cs2) rhat,
+        dt(w) + srho*grad(sc*psi) + 2*cross(ez, w) = 0,
+        dt(psi) + sc*div(srho*w) = 0,      srho = sqrt(rho0), sc = sqrt(Cs2/rho0),
+    whose energy is the plain norm: the spectrum is then real to rounding
+    (|gamma| <= 4e-11 nHz in the same test, either coriolis_pairing).  With
+    viscosity the primitive form is fine: the non-skew part is truncation
+    error and converges away at the scheme's order;
   * Coriolis cross-component interpolations built as adjoint pairs (a
     base interpolation and its volume-weighted transpose); the θ–φ pair is
     exactly skew only with ``coriolis_pairing='adjoint'``, see
